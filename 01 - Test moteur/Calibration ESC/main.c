@@ -2,51 +2,65 @@
 Damien MONNI - 07/02/2014 (last update : 07/02/2014)
 www.damien-monni.fr
 
-Calibration d'un ESC TURNIGY Plush 10amp
+Calibration d'un ESC TURNIGY Plush 10amp avec un ATMega328P
 **************************************/
 
 #include <avr/io.h> 
 #include <avr/interrupt.h>
 
-//Convert microsecond to tick for a 16MHz clock source with a prescaler of 8
+//Renvoie le nombre de tops d'horloge d'une durée donnée en microseconde
+//Il est important de bien renseigner les deux constantes
+//globales clockSourceMhz et prescaler.
 uint32_t usToTicks(uint32_t us);
 
-volatile unsigned int vitesseArretMs = 700; //Temps à l'état haut du signal PMW pour le moteur à l'arret
+//Constantes pour la fonction usToTicks
+const float clockSourceMhz = 1.0f;
+const uint8_t prescaler = 1;
+
+//Temps de l'impulsion PMW pour un signal de puissance maximale
+const unsigned uint16_t maxSpeedMs = 700;
+
+//Donne l'état du signal PMW (bas ou haut)
 volatile boolean isHigh;
+
 
 int main(void){
 
-	TCCR1B |= 1<<CS11; //Prescaler of 8
-	TIMSK1 |= (1<<OCIE1A); //Interrupt on OCR1A
-	OCR1A = usToTicks(vitesseArretMs); //Set the first interrupt to occur when the first pulse was ended
+	TCCR1B |= 1<<CS10; //CS10 : Aucun prescaler
+	TIMSK1 |= (1<<OCIE1A); //Interruption déclenchée lorsque OCR1A est atteint
+	OCR1A = usToTicks(maxSpeedMs); //Configure la première interruption à la fin de la première impulsion.
 	
-	DDRL |= 1<<DDL0; //Ports 49, 48, 47, 46 on Arduino Mega 2560 set as OUTPUT
-	PORTL = 1<<PORTL0; //Set first servo pin high
-	isHigh = true;
+	DDRB |= 1<<DDB0; //Broche PB0 configurer comme sortie
+	PORTB = 1<<PORTB0; //Broche PB0 à l'état haut
+	isHigh = true; //Signal PMW à l'état haut
 	
-	sei(); //Enable global interrupts
+	sei(); //Activer les interruptions
 	
-	while(1);
+	while(1); //Boucle infinie
 
 	return 0;
 }
 
-//PMW Building ISR
+//Interruption sur OCR1A
 ISR(TIMER1_COMPA_vect)
 {
-	if(isHigh){ //Every motors was pulsed, waiting for the next period
-		PORTL &= ~(1<<PORTL0); //Clear the last motor pin
-		OCR1A = usToTicks(20000);
+	//Signal PMW à l'état haut.
+	if(isHigh){
+		PORTL &= ~(1<<PORTL0); //Passer le signal à l'état bas, terminer l'impulsion
+		OCR1A = usToTicks(20000); //Configurer la prochaine interruption afin de créer un signal à 50Hz
 		isHigh = false;
 	}
+	//Signal PMW à l'état bas, fin de la période de 20ms (50Hz)
 	else{
-		TCNT1 = 0;
-		PORTL |= 1<<0;
-		OCR1A = usToTicks(vitesseArretMs);
+		TCNT1 = 0; //Remettre timer à 0
+		PORTL |= 1<<0; //Commencer une impulsion
+		OCR1A = usToTicks(maxSpeedMs); //Configurer la prochaine interruption pour la fin de l'impulsion
 	}
 }
 
-//Convert microsecond to tick for a 16MHz clock with a prescaler of 8
+//Renvoie le nombre de tops d'horloge d'une durée donnée en microseconde
+//Il est important de bien renseigner les deux constantes
+//globales clockSourceMhz et prescaler.
 uint32_t usToTicks(uint32_t us){
-	return (16.0 * us) / (float)8; // 16 = tick per microsecond (16MHz/1000000) ; 8 = prescaler
+	return (clockSourceMhz * us) / (float)prescaler;
 }
