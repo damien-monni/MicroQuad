@@ -9,6 +9,8 @@ Initial speeds in microsecond should be enter in the servo[] table.
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
+long map(long x, long in_min, long in_max, long out_min, long out_max);
+
 volatile unsigned int servo[4] = {2000, 2000, 2000, 2000}; //Initial speed - 700 to 2000 for ESC Turnigy Plush
 volatile int8_t channel = 1; //Controlled motor number : 0, 1, 2 or 3
 
@@ -46,10 +48,7 @@ int main(void){
 		}
 		
 		if(timeS > 300){
-			servo[0] = time/1.4f;
-			servo[1] = time/1.4f;
-			servo[2] = time/1.4f;
-			servo[3] = time/1.4f;
+			servo[0] = map(time, 1150, 2000, 700, 2000);
 		}
 	}
 
@@ -120,4 +119,9 @@ ISR(PCINT0_vect){
 		/* PCINT1 changed */
 		
 	}
+}
+
+long map(long x, long in_min, long in_max, long out_min, long out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
