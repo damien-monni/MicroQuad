@@ -27,7 +27,7 @@ int main(void){
 	PCICR |= 1<<PCIE0; //Enable interrupt of PCINT7:0
 	PCMSK0 |= 1<<PCINT0 | 1<<PCINT1;
 
-	TCCR1B |= 1<<CS10; //Prescaler of 0
+	TCCR1B |= 1<<CS11; //Prescaler of 8 because 8MHz clock source
 	TIMSK1 |= (1<<OCIE1A); //Interrupt on OCR1A
 	OCR1A = servo[0]; //Set the first interrupt to occur when the first pulse was ended
 	
@@ -48,7 +48,10 @@ int main(void){
 		}
 		
 		if(timeS > 300){
-			servo[0] = map(time, 1150, 2000, 700, 2000);
+			servo[0] = map(time, 1400, 2000, 700, 2000);
+			servo[1] = map(time, 1400, 2000, 700, 2000);
+			servo[2] = map(time, 1400, 2000, 700, 2000);
+			servo[3] = map(time, 1400, 2000, 700, 2000);
 		}
 	}
 
