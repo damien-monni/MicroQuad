@@ -12,7 +12,7 @@ Initial speeds in microsecond should be enter in the servo[] table.
 long map(long x, long in_min, long in_max, long out_min, long out_max);
 
 volatile unsigned int servo[4] = {2000, 2000, 2000, 2000}; //Initial speed - 700 to 2000 for ESC Turnigy Plush
-volatile int8_t channel = 1; //Controlled motor number : 0, 1, 2 or 3
+volatile int8_t channel = 1; //Controlled motor number : 1, 2, 3 or 4
 
 volatile uint16_t previousTime = 0, time = 0; //Time from 70(1.1ms) to 125(2ms) on 8 bits timer
 volatile uint8_t isHigh = 0;
