@@ -13,7 +13,7 @@
 # FUSES ........ Parameters for avrdude to flash the fuses appropriately.
  
 DEVICE     = atmega328p
-CLOCK      = 1000000
+CLOCK      = 8000000
 PROGRAMMER = -c arduino -P COM3 -b 19200 -F
 OBJECTS    = main.o
 FUSES      = -U lfuse:w:0xe2:m -U hfuse:w:0xd9:m -U efuse:w:0x07:m
