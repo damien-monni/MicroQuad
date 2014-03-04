@@ -52,7 +52,15 @@ int main(void){
 	
 		//Après initialisation des ESC (après 7s)
 		if(timeS > 7*50){
-			servo[0] = map(adc, 0, 1023, 700, 1000);
+			
+			if(adc < 512){
+				adc = 512;
+			}
+			else if(adc > 1023){
+				adc = 1023;
+			}
+			
+			servo[0] = map(adc, 512, 1023, 700, 1000);
 		}
 		
 	}
@@ -103,12 +111,12 @@ ISR(ADC_vect){
 	adc = ADC;
 	
 	//Sélectionner le convertisseur suivant
-	if(ADMUX == 5){
+	/*if(ADMUX == 5){
 		ADMUX = 0;
 	}
 	else{
 		ADMUX++;
-	}
+	}*/
 	
 	//Démarrer une nouvelle conversion
 	ADCSRA |= 1<<ADSC;
@@ -140,8 +148,8 @@ void initAdc(){
 	//Selectionner la référence de voltage via REFSn dans ADMUX
 		//Rien à faire car utilisation de AREF, donc REFS0 et RES1 = 0
 	
-	//Sélectionner le premier convertisseur via MUX dans ADMUX
-		//Rien à faire car l'on souhaite commencer par ADC0, donc MUX3...0 = 0
+	//Sélectionner le convertisseur ADC5 via MUX dans ADMUX
+	ADMUX |= 1<<MUX0 | 1<<MUX2;
 	
 	//Activer l'interruption sur conversion terminée via ADIE dans ADCSRA
 	ADCSRA |= 1<<ADIE;
