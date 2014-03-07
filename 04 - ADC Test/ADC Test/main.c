@@ -48,6 +48,9 @@ int main(void){
 	
 	sei(); //Activer les interruptions
 	
+	//Démarrer une première conversion des ADC
+	ADCSRA |= 1<<ADSC;
+	
 	while(1){
 	
 		//Après initialisation des ESC (après 7s)
@@ -156,9 +159,6 @@ void initAdc(){
 	
 	//Paramétrer le prescaler de l'ADC à 64 :horloge 8Mhz -> horloge ADC de 125kHz
 	ADCSRA |= 1<<ADPS1 | 1<<ADPS2;
-	
-	//Démarrer une première conversion
-	ADCSRA |= 1<<ADSC;
 	
 }
 
