@@ -52,7 +52,7 @@ ISR(TIMER1_COMPA_vect)
 	//Signal PMW à l'état haut.
 	if(isHigh == 1){
 		PORTD &= ~(1<<PORTD4); //Passer le signal à l'état bas, terminer l'impulsion
-		OCR1A = 20000; //Configurer la prochaine interruption afin de créer un signal à 50Hz
+		OCR1A = usToTicks(20); //Configurer la prochaine interruption afin de créer un signal à 50Hz (20ms)
 		isHigh = 0;
 		count++;
 	}
