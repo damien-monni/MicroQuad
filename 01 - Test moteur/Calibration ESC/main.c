@@ -1,5 +1,5 @@
 /**************************************
-Damien MONNI - 07/02/2014 (last update : 10/02/2015)
+Damien MONNI - 07/02/2014 (dernière mise à jour : 10/02/2015)
 www.damien-monni.fr
 
 Calibration d'un ESC TURNIGY Plush 10amp sur le port PD4 d'un ATMega328P
