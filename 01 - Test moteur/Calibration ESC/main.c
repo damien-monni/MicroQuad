@@ -22,7 +22,9 @@ volatile uint32_t speedUs = 700;
 
 //Donne l'état du signal PMW (bas ou haut)
 volatile uint8_t isHigh = 0;
-volatile int count = 0;
+
+//Donne le temps d'execution du programme en ms (compte au max environ 1.5 mois soit environ 46 jours)
+volatile uint32_t timeFromStartMs = 0;
 
 
 int main(void){
@@ -38,7 +40,9 @@ int main(void){
 	sei(); //Activer les interruptions
 	
 	while(1){ //Boucle infinie
-		if(count > 250){
+	
+		//Après 5s d'initialisation
+		if(timeFromStartMs > 5000){
 			speedUs = 1000;
 		}
 	}
@@ -54,7 +58,7 @@ ISR(TIMER1_COMPA_vect)
 		PORTD &= ~(1<<PORTD4); //Passer le signal à l'état bas, terminer l'impulsion
 		OCR1A = usToTicks(20000); //Configurer la prochaine interruption afin de créer un signal à 50Hz (20ms)
 		isHigh = 0;
-		count++;
+		timeFromStartMs += 20;
 	}
 	//Signal PMW à l'état bas, fin de la période de 20ms (50Hz)
 	else{
