@@ -17,8 +17,8 @@ uint32_t usToTicks(uint32_t us);
 const float clockSourceMhz = 8.0f;
 const uint8_t prescaler = 1;
 
-//Temps de l'impulsion PMW en microsecond
-volatile uint32_t speedUs = 700;
+//Temps de l'impulsion PMW en microsecond (min : 700us - max : 2400us)
+volatile uint32_t speedUs = 2400;
 
 //Donne l'état du signal PMW (bas ou haut)
 volatile uint8_t isHigh = 0;
@@ -43,8 +43,8 @@ int main(void){
 	while(1){ //Boucle infinie
 	
 		//Après 5s d'initialisation
-		if(timeFromStartMs > 5000){
-			speedUs = 1000;
+		if(timeFromStartMs > 2300){
+			speedUs = 700;
 		}
 	}
 
