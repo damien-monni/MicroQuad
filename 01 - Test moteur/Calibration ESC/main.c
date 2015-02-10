@@ -24,6 +24,7 @@ volatile uint32_t speedUs = 700;
 volatile uint8_t isHigh = 0;
 
 //Donne le temps d'execution du programme en ms (compte au max environ 1.5 mois soit environ 46 jours)
+//MIS A JOUR SEULEMENT TOUTES LES 20MS VIA LA GENERATION PMW.
 volatile uint32_t timeFromStartMs = 0;
 
 
