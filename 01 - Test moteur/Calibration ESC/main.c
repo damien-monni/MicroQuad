@@ -8,19 +8,19 @@ Calibration d'un ESC TURNIGY Plush 10amp avec un ATMega328P
 #include <avr/io.h> 
 #include <avr/interrupt.h>
 
-//Renvoie le nombre de tops d'horloge d'une durée donnée en microseconde
+//Renvoie le nombre de tops d'horloge d'une durÃ©e donnÃ©e en microseconde
 //Il est important de bien renseigner les deux constantes
 //globales clockSourceMhz et prescaler.
 uint32_t usToTicks(uint32_t us);
 
 //Constantes pour la fonction usToTicks
-const float clockSourceMhz = 1.0f;
+const float clockSourceMhz = 8.0f;
 const uint8_t prescaler = 1;
 
 //Temps de l'impulsion PMW pour un signal de puissance maximale
 volatile uint32_t maxSpeedMs = 700;
 
-//Donne l'état du signal PMW (bas ou haut)
+//Donne l'Ã©tat du signal PMW (bas ou haut)
 volatile uint8_t isHigh = 0;
 volatile int count = 0;
 
@@ -28,12 +28,12 @@ volatile int count = 0;
 int main(void){
 
 	TCCR1B |= 1<<CS10; //CS10 : Aucun prescaler
-	TIMSK1 |= (1<<OCIE1A); //Interruption déclenchée lorsque OCR1A est atteint
-	OCR1A = usToTicks(maxSpeedMs); //Configure la première interruption à la fin de la première impulsion.
+	TIMSK1 |= (1<<OCIE1A); //Interruption dÃ©clenchÃ©e lorsque OCR1A est atteint
+	OCR1A = usToTicks(maxSpeedMs); //Configure la premiÃ¨re interruption Ã  la fin de la premiÃ¨re impulsion.
 	
 	DDRD |= 1<<DDD4; //Broche PB0 configurer comme sortie
-	PORTD = 1<<PORTD4; //Broche PB0 à l'état haut
-	isHigh = 1; //Signal PMW à l'état haut
+	PORTD = 1<<PORTD4; //Broche PB0 Ã  l'Ã©tat haut
+	isHigh = 1; //Signal PMW Ã  l'Ã©tat haut
 	
 	sei(); //Activer les interruptions
 	
@@ -49,23 +49,23 @@ int main(void){
 //Interruption sur OCR1A
 ISR(TIMER1_COMPA_vect)
 {
-	//Signal PMW à l'état haut.
+	//Signal PMW Ã  l'Ã©tat haut.
 	if(isHigh == 1){
-		PORTD &= ~(1<<PORTD4); //Passer le signal à l'état bas, terminer l'impulsion
-		OCR1A = 20000; //Configurer la prochaine interruption afin de créer un signal à 50Hz
+		PORTD &= ~(1<<PORTD4); //Passer le signal Ã  l'Ã©tat bas, terminer l'impulsion
+		OCR1A = 20000; //Configurer la prochaine interruption afin de crÃ©er un signal Ã  50Hz
 		isHigh = 0;
 		count++;
 	}
-	//Signal PMW à l'état bas, fin de la période de 20ms (50Hz)
+	//Signal PMW Ã  l'Ã©tat bas, fin de la pÃ©riode de 20ms (50Hz)
 	else{
-		TCNT1 = 0; //Remettre timer à 0
+		TCNT1 = 0; //Remettre timer Ã  0
 		PORTD |= 1<<PORTD4; //Commencer une impulsion
 		OCR1A = maxSpeedMs; //Configurer la prochaine interruption pour la fin de l'impulsion
 		isHigh = 1;
 	}
 }
 
-//Renvoie le nombre de tops d'horloge d'une durée donnée en microseconde
+//Renvoie le nombre de tops d'horloge d'une durÃ©e donnÃ©e en microseconde
 //Il est important de bien renseigner les deux constantes
 //globales clockSourceMhz et prescaler.
 uint32_t usToTicks(uint32_t us){
