@@ -2,7 +2,7 @@
 Damien MONNI - 07/02/2014 (dernière mise à jour : 10/02/2015)
 www.damien-monni.fr
 
-Calibration d'un ESC TURNIGY Plush 10amp sur le port PD4 d'un ATMega328P
+Calibration d'un ESC TURNIGY Plush 10amp sur le port PD4 d'un ATMega328P 8Mhz
 **************************************/
 
 #include <avr/io.h> 
@@ -15,10 +15,10 @@ uint32_t usToTicks(uint32_t us);
 
 //Constantes pour la fonction usToTicks
 const float clockSourceMhz = 8.0f;
-const uint8_t prescaler = 1;
+const uint8_t prescaler = 8;
 
 //Temps de l'impulsion PMW en microsecond (min : 700us - max : 2400us)
-volatile uint32_t speedUs = 2400;
+volatile uint32_t speedUs = 2300;
 
 //Donne l'état du signal PMW (bas ou haut)
 volatile uint8_t isHigh = 0;
@@ -27,10 +27,9 @@ volatile uint8_t isHigh = 0;
 //MIS A JOUR SEULEMENT TOUTES LES 20MS VIA LA GENERATION PMW.
 volatile uint32_t timeFromStartMs = 0;
 
-
 int main(void){
 
-	TCCR1B |= 1<<CS10; //CS10 : Aucun prescaler
+	TCCR1B |= 1<<CS11; //Prescaler 8 avec une horlge à 8Mhz
 	TIMSK1 |= (1<<OCIE1A); //Interruption déclenchée lorsque OCR1A est atteint
 	OCR1A = usToTicks(speedUs); //Configure la première interruption à la fin de la première impulsion.
 	
@@ -41,7 +40,7 @@ int main(void){
 	sei(); //Activer les interruptions
 	
 	while(1){ //Boucle infinie
-	
+
 		//Après 5s d'initialisation
 		if(timeFromStartMs > 2300){
 			speedUs = 700;
