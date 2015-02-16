@@ -9,15 +9,25 @@ Initial speeds in microsecond should be enter in the servo[] table.
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
+//Renvoie le nombre de tops d'horloge d'une durée donnée en microseconde
+//Il est important de bien renseigner les deux constantes
+//globales clockSourceMhz et prescaler.
+uint32_t usToTicks(uint32_t us);
+
 long map(long x, long in_min, long in_max, long out_min, long out_max);
 
-volatile unsigned int servo[4] = {2000, 2000, 2000, 2000}; //Initial speed - 700 to 2000 for ESC Turnigy Plush
+//Constantes pour la fonction usToTicks
+const float clockSourceMhz = 8.0f;
+const uint8_t prescaler = 8;
+
+//Donne le temps d'execution du programme en ms (compte au max environ 1.5 mois soit environ 46 jours)
+//MIS A JOUR SEULEMENT TOUTES LES 20MS VIA LA GENERATION PMW.
+volatile uint32_t timeFromStartMs = 0;
+
+volatile unsigned int servo[4] = {700, 700, 700, 700}; //Initial speed - 700 to 2000 for ESC Turnigy Plush
 volatile int8_t channel = 1; //Controlled motor number : 1, 2, 3 or 4
 
 volatile uint16_t previousTime = 0, time = 0; //Time from 70(1.1ms) to 125(2ms) on 8 bits timer
-volatile uint8_t isHigh = 0;
-
-volatile uint16_t timeS = 0;
 
 //For interrupts PCINT
 volatile uint8_t portbhistory = 0;
@@ -37,21 +47,15 @@ int main(void){
 	sei(); //Enable global interrupts
 	
 	while(1){
-		/*if(timeS > 50*8){
-			servo[0] = time/(float)2.0f;
-		}*/
-		if(timeS > 125 && timeS < 130){
-			servo[0] = 700;
-			servo[1] = 700;
-			servo[2] = 700;
-			servo[3] = 700;
-		}
 		
-		if(timeS > 300){
-			servo[0] = map(time, 1400, 2000, 700, 2000);
-			servo[1] = map(time, 1400, 2000, 700, 2000);
-			servo[2] = map(time, 1400, 2000, 700, 2000);
-			servo[3] = map(time, 1400, 2000, 700, 2000);
+		if(timeFromStartMs > 7000){
+			uint16_t tempTime = map(time, 1400, 2000, 700, 800);
+			if(tempTime > 800){
+				servo[2] = 800;
+			}
+			else{
+				servo[2] = tempTime;
+			}
 		}
 	}
 
@@ -63,16 +67,16 @@ ISR(TIMER1_COMPA_vect)
 {
 	if(channel < 0){ //Every motors was pulsed, waiting for the next period
 		//TODO : try to use TCNT1 >= usToTicks(20000) instead of TCNT1 >= 40000
-		if(TCNT1 >= 20000){ //50Hz with a prescaler of 8 at 16MHz
+		if(TCNT1 >= usToTicks(20000)){ //50Hz with a prescaler of 8 at 16MHz
 			TCNT1 = 0;
 			channel = 1;
 			PORTD |= 1<<channel;
 			OCR1A = servo[0];
-			timeS++;
+			timeFromStartMs += 20;
 		}
 		else{
 			//TODO : try to use OCR1A = usToTicks(20000) instead of OCR1A = 40000
-			OCR1A = 20000;
+			OCR1A = usToTicks(20000);
 		}
 	}
 	else{
@@ -84,7 +88,7 @@ ISR(TIMER1_COMPA_vect)
 		}
 		else{
 			PORTD &= ~(1<<channel); //Clear the last motor pin
-			OCR1A = TCNT1 + 500; //Call again the interrupt a bit after that
+			OCR1A = TCNT1 + 500; //Call again the interrupt just after that
 			channel = -1; //Wait for the next period
 		}
 	}
@@ -101,7 +105,7 @@ ISR(PCINT0_vect){
 	{
 		/* PCINT0 changed */
 		//Min just goes high, is now high
-		if(PINB & 1<<PORTB0){ //Be careful of assigning the good PORTBx
+		/*if(PINB & 1<<PORTB0){ //Be careful of assigning the good PORTBx
 			previousTime = TCNT1;
 			isHigh = 1;
 		}
@@ -114,15 +118,35 @@ ISR(PCINT0_vect){
 				time = (20000 - previousTime) + TCNT1;
 			}
 			isHigh = 0;
-		}
+		}*/
 	}
 	
-	if(changedbits & (1 << PB1))
+	if(changedbits & (1 << PB2))
 	{
 		/* PCINT1 changed */
-		
+		//Min just goes high, is now high
+		if(PINB & 1<<PORTB2){ //Be careful of assigning the good PORTBx
+			previousTime = TCNT1;
+		}
+		//Pin just goes low, is now low
+		else{
+			if(TCNT1 > previousTime){
+				time = TCNT1 - previousTime;
+			}
+			else{
+				time = (usToTicks(20000) - previousTime) + TCNT1;
+			}
+		}
 	}
 }
+
+//Renvoie le nombre de tops d'horloge d'une durée donnée en microseconde
+//Il est important de bien renseigner les deux constantes
+//globales clockSourceMhz et prescaler.
+uint32_t usToTicks(uint32_t us){
+	return (clockSourceMhz * us) / (float)prescaler;
+}
+
 
 long map(long x, long in_min, long in_max, long out_min, long out_max)
 {
