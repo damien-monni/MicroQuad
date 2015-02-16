@@ -1,5 +1,5 @@
 /**************************************
-Damien MONNI - 20/02/2014 (last update : 20/02/2014)
+Damien MONNI - 20/02/2014 (last update : 15/02/2015)
 www.damien-monni.fr
 
 Fait tourner 4 moteurs brushless avec un ATMega328p sur PD1, PD2, PD3, PD4
@@ -8,27 +8,50 @@ Fait tourner 4 moteurs brushless avec un ATMega328p sur PD1, PD2, PD3, PD4
 #include <avr/io.h> 
 #include <avr/interrupt.h>
 
-//Convert microsecond to tick for a 16MHz clock with a prescaler of 8
-uint16_t usToTicks(uint16_t us);
+//Renvoie le nombre de tops d'horloge d'une durée donnée en microseconde
+//Il est important de bien renseigner les deux constantes
+//globales clockSourceMhz et prescaler.
+uint32_t usToTicks(uint32_t us);
 
-volatile unsigned int servo[4] = {2000, 2000, 2000, 2000}; //Initial speed - 700 to 2000 for ESC Turnigy Plush
+//Constantes pour la fonction usToTicks
+const float clockSourceMhz = 8.0f;
+const uint8_t prescaler = 8;
+
+//Donne le temps d'execution du programme en ms (compte au max environ 1.5 mois soit environ 46 jours)
+//MIS A JOUR SEULEMENT TOUTES LES 20MS VIA LA GENERATION PMW.
+volatile uint32_t timeFromStartMs = 0;
+
+volatile uint32_t servo[4] = {700, 700, 700, 700}; //Initial speed - 700 to 2000 for ESC Turnigy Plush
 volatile int8_t channel = 1; //Controlled motor number : 0, 1, 2 or 3
-
-volatile int32_t count = 0;
 
 int main(void){
 
-	TCCR1B |= 1<<CS10; //Prescaler of 0
+	TCCR1B |= 1<<CS11; //Prescaler 8 avec une horlge à 8Mhz
 	TIMSK1 |= (1<<OCIE1A); //Interrupt on OCR1A
 	OCR1A = servo[0]; //Set the first interrupt to occur when the first pulse was ended
 	
-	DDRD |= 1<<DDD1 | 1<<DDD2 | 1<<DDD3 | 1<<DDD4; //Ports 49, 48, 47, 46 on Arduino Mega 2560 set as OUTPUT
+	DDRD |= 1<<DDD1 | 1<<DDD2 | 1<<DDD3 | 1<<DDD4; //Ports set as OUTPUTS
 	PORTD = 1<<channel; //Set first servo pin high
 	
 	sei(); //Enable global interrupts
 	
 	while(1){
-		if(count > 125 && count < 130){
+	
+		if(timeFromStartMs > 5000 && timeFromStartMs < 7000){
+			servo[0] = 850;
+			servo[1] = 850;
+			servo[2] = 850;
+			servo[3] = 850;
+		}
+		
+		if(timeFromStartMs > 7000){
+			servo[0] = 700;
+			servo[1] = 700;
+			servo[2] = 700;
+			servo[3] = 700;
+		}
+	
+		/*if(count > 125 && count < 130){
 			servo[0] = 700;
 			servo[1] = 700;
 			servo[2] = 700;
@@ -47,7 +70,7 @@ int main(void){
 			servo[1] = 700;
 			servo[2] = 700;
 			servo[3] = 700;
-		}
+		}*/
 		
 	}
 
@@ -59,16 +82,16 @@ ISR(TIMER1_COMPA_vect)
 {
 	if(channel < 0){ //Every motors was pulsed, waiting for the next period
 		//TODO : try to use TCNT1 >= usToTicks(20000) instead of TCNT1 >= 40000
-		if(TCNT1 >= 20000){ //50Hz with a prescaler of 8 at 16MHz
+		if(TCNT1 >= usToTicks(20000)){ //50Hz with a prescaler of 8 at 16MHz
 			TCNT1 = 0;
 			channel = 1;
 			PORTD |= 1<<channel;
 			OCR1A = servo[0];
-			count++;
+			timeFromStartMs += 20;
 		}
 		else{
 			//TODO : try to use OCR1A = usToTicks(20000) instead of OCR1A = 40000
-			OCR1A = 20000;
+			OCR1A = usToTicks(20000);
 		}
 	}
 	else{
@@ -86,7 +109,9 @@ ISR(TIMER1_COMPA_vect)
 	}
 }
 
-//Convert microsecond to tick for a 16MHz clock with a prescaler of 8
-uint16_t usToTicks(uint16_t us){
-	return (1 * us) / (float)1; // 16 = tick per microsecond (16MHz/1000000) ; 8 = prescaler
+//Renvoie le nombre de tops d'horloge d'une durée donnée en microseconde
+//Il est important de bien renseigner les deux constantes
+//globales clockSourceMhz et prescaler.
+uint32_t usToTicks(uint32_t us){
+	return (clockSourceMhz * us) / (float)prescaler;
 }

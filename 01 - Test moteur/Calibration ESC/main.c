@@ -33,8 +33,8 @@ int main(void){
 	TIMSK1 |= (1<<OCIE1A); //Interruption déclenchée lorsque OCR1A est atteint
 	OCR1A = usToTicks(speedUs); //Configure la première interruption à la fin de la première impulsion.
 	
-	DDRD |= 1<<DDD4; //Broche PB0 configurer comme sortie
-	PORTD = 1<<PORTD4; //Broche PB0 à l'état haut
+	DDRD |= 1<<DDD1; //Broche PB0 configurer comme sortie
+	PORTD = 1<<PORTD1; //Broche PB0 à l'état haut
 	isHigh = 1; //Signal PMW à l'état haut
 	
 	sei(); //Activer les interruptions
@@ -55,7 +55,7 @@ ISR(TIMER1_COMPA_vect)
 {
 	//Signal PMW à l'état haut.
 	if(isHigh == 1){
-		PORTD &= ~(1<<PORTD4); //Passer le signal à l'état bas, terminer l'impulsion
+		PORTD &= ~(1<<PORTD1); //Passer le signal à l'état bas, terminer l'impulsion
 		OCR1A = usToTicks(20000); //Configurer la prochaine interruption afin de créer un signal à 50Hz (20ms)
 		isHigh = 0;
 		timeFromStartMs += 20;
@@ -63,7 +63,7 @@ ISR(TIMER1_COMPA_vect)
 	//Signal PMW à l'état bas, fin de la période de 20ms (50Hz)
 	else{
 		TCNT1 = 0; //Remettre timer à 0
-		PORTD |= 1<<PORTD4; //Commencer une impulsion
+		PORTD |= 1<<PORTD1; //Commencer une impulsion
 		OCR1A = speedUs; //Configurer la prochaine interruption pour la fin de l'impulsion
 		isHigh = 1;
 	}

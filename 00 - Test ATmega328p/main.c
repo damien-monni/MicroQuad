@@ -4,10 +4,10 @@
 #include <avr/io.h>
 
 int main(){
-	DDRB |= 1<<DDB0;
+	DDRD |= 1<<DDD1;
 	
 	while(1){
-		PORTB ^= 1<<PORTB0;
+		PORTD ^= 1<<PORTD1;
 		_delay_ms(1000);
 	}
 }
