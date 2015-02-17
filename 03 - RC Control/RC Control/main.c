@@ -14,23 +14,40 @@ Initial speeds in microsecond should be enter in the servo[] table.
 //globales clockSourceMhz et prescaler.
 uint32_t usToTicks(uint32_t us);
 
+//Fonction inverse de usToTicks(). Convertie microsecondes en nombre de "tops d'horloge".
+//Il est important de bien renseigner les deux constantes
+//globales clockSourceMhz et prescaler.
+uint32_t ticksToUs(uint32_t ticks);
+
 long map(long x, long in_min, long in_max, long out_min, long out_max);
 
 //Constantes pour la fonction usToTicks
 const float clockSourceMhz = 8.0f;
 const uint8_t prescaler = 8;
 
+//Constantes PMW en microsecondes
+const uint16_t rcMinUs = 1400;
+const uint16_t rcMaxUs = 2000;
+const uint16_t motorMinUs = 700;
+const uint16_t motorMaxUs = 800;
+
 //Donne le temps d'execution du programme en ms (compte au max environ 1.5 mois soit environ 46 jours)
 //MIS A JOUR SEULEMENT TOUTES LES 20MS VIA LA GENERATION PMW.
 volatile uint32_t timeFromStartMs = 0;
 
-volatile unsigned int servo[4] = {700, 700, 700, 700}; //Initial speed - 700 to 2000 for ESC Turnigy Plush
+volatile unsigned int servo[4] = {motorMinUs, motorMinUs, motorMinUs, motorMinUs}; //Initial speed in microseconds
 volatile int8_t channel = 1; //Controlled motor number : 1, 2, 3 or 4
 
-volatile uint16_t previousTime = 0, time = 0; //Time from 70(1.1ms) to 125(2ms) on 8 bits timer
+volatile uint16_t previousThrottle = 0; //Time from 70(1.1ms) to 125(2ms) on 8 bits timer
 
 //For interrupts PCINT
 volatile uint8_t portbhistory = 0;
+
+//RC commands
+volatile int16_t throttle = 0; //Altitude control
+volatile int16_t roll = 0; //Left or right
+volatile int16_t pitch = 0; //Up and down
+volatile int16_t yaw = 0; //Left or right in level fly
 
 int main(void){
 
@@ -49,7 +66,8 @@ int main(void){
 	while(1){
 		
 		if(timeFromStartMs > 7000){
-			uint16_t tempTime = map(time, 1400, 2000, 700, 800);
+			//------------------------------------------------------TODO =>
+			uint16_t tempTime = map(time, 1400, 2000, 700, 800); //Need to be corrected with ticksToUS taking in account...
 			if(tempTime > 800){
 				servo[2] = 800;
 			}
@@ -98,43 +116,30 @@ ISR(PCINT0_vect){
 	
 	uint8_t changedbits;
 
+	//^ = XOR (exclusive OR, one bit or the other, but not both at the same time). Use to detect a bit that has changed.
+	//
+	//EXAMPLE:
+	//    0001001
+	//XOR 0000001
+	//----------
+	//    0001000
 	changedbits = PINB ^ portbhistory;
 	portbhistory = PINB;
 	
-	if(changedbits & (1 << PB0))
-	{
-		/* PCINT0 changed */
-		//Min just goes high, is now high
-		/*if(PINB & 1<<PORTB0){ //Be careful of assigning the good PORTBx
-			previousTime = TCNT1;
-			isHigh = 1;
-		}
-		//Pin just goes low, is now low
-		else{
-			if(TCNT1 > previousTime){
-				time = TCNT1 - previousTime;
-			}
-			else{
-				time = (20000 - previousTime) + TCNT1;
-			}
-			isHigh = 0;
-		}*/
-	}
-	
 	if(changedbits & (1 << PB2))
 	{
-		/* PCINT1 changed */
+		/* PCINT2 changed */
 		//Min just goes high, is now high
 		if(PINB & 1<<PORTB2){ //Be careful of assigning the good PORTBx
-			previousTime = TCNT1;
+			previousThrottle = TCNT1;
 		}
 		//Pin just goes low, is now low
 		else{
-			if(TCNT1 > previousTime){
-				time = TCNT1 - previousTime;
+			if(TCNT1 > previousThrottle){
+				throttle = ticksToUs(TCNT1 - previousThrottle);
 			}
 			else{
-				time = (usToTicks(20000) - previousTime) + TCNT1;
+				throttle = ticksToUs((usToTicks(20000) - previousThrottle) + TCNT1);
 			}
 		}
 	}
@@ -145,6 +150,13 @@ ISR(PCINT0_vect){
 //globales clockSourceMhz et prescaler.
 uint32_t usToTicks(uint32_t us){
 	return (clockSourceMhz * us) / (float)prescaler;
+}
+
+//Fonction inverse de usToTicks(). Convertie microsecondes en nombre de "tops d'horloge".
+//Il est important de bien renseigner les deux constantes
+//globales clockSourceMhz et prescaler.
+uint32_t ticksToUs(uint32_t ticks){
+	return (ticks * (float)prescaler) / clockSourceMhz;
 }
 
 
