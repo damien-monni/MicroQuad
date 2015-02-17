@@ -5,7 +5,9 @@ www.damien-monni.fr
 Make brushless motors on pin 43, 44, 45, 46 to run at the initial speed (0 tr/min) on an ATmega2560.
 Initial speeds in microsecond should be enter in the servo[] table.
 **************************************/
+#define F_CPU 8000000UL
 
+#include <util/delay.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
@@ -35,7 +37,7 @@ const uint16_t motorMaxUs = 800;
 //MIS A JOUR SEULEMENT TOUTES LES 20MS VIA LA GENERATION PMW.
 volatile uint32_t timeFromStartMs = 0;
 
-volatile unsigned int servo[4] = {motorMinUs, motorMinUs, motorMinUs, motorMinUs}; //Initial speed in microseconds
+volatile unsigned int servo[4] = {700, 700, 700, 700}; //Initial speed in microseconds
 volatile int8_t channel = 1; //Controlled motor number : 1, 2, 3 or 4
 
 volatile uint16_t previousThrottle = 0; //Time from 70(1.1ms) to 125(2ms) on 8 bits timer
@@ -52,28 +54,29 @@ volatile int16_t yaw = 0; //Left or right in level fly
 int main(void){
 
 	PCICR |= 1<<PCIE0; //Enable interrupt of PCINT7:0
-	PCMSK0 |= 1<<PCINT0 | 1<<PCINT1;
+	PCMSK0 |= 1<<PCINT0 | 1<<PCINT1 | 1<<PCINT2 | 1<<PCINT3;
 
 	TCCR1B |= 1<<CS11; //Prescaler of 8 because 8MHz clock source
 	TIMSK1 |= (1<<OCIE1A); //Interrupt on OCR1A
 	OCR1A = servo[0]; //Set the first interrupt to occur when the first pulse was ended
 	
-	DDRD |= 1<<DDD1 | 1<<DDD2 | 1<<DDD3 | 1<<DDD4;
+	DDRD |= 1<<DDD0 | 1<<DDD1 | 1<<DDD2 | 1<<DDD3 | 1<<DDD4; //LED and motors as output
 	PORTD = 1<<channel; //Set first servo pin high
 	
 	sei(); //Enable global interrupts
 	
+	int16_t prevThrottle = 0;
+	
 	while(1){
 		
+		/*if(throttle != prevThrottle){
+			servo[3] = map(throttle, 1400, 2000, 700, 800); //Need to be corrected with ticksToUS taking in account...	
+		}
+		
+		prevThrottle = throttle;*/
+		
 		if(timeFromStartMs > 7000){
-			//------------------------------------------------------TODO =>
-			uint16_t tempTime = map(time, 1400, 2000, 700, 800); //Need to be corrected with ticksToUS taking in account...
-			if(tempTime > 800){
-				servo[2] = 800;
-			}
-			else{
-				servo[2] = tempTime;
-			}
+			servo[3] = 800;
 		}
 	}
 
@@ -106,14 +109,13 @@ ISR(TIMER1_COMPA_vect)
 		}
 		else{
 			PORTD &= ~(1<<channel); //Clear the last motor pin
-			OCR1A = TCNT1 + 500; //Call again the interrupt just after that
+			OCR1A = TCNT1 + 2000; //Call again the interrupt just after that
 			channel = -1; //Wait for the next period
 		}
 	}
 }
 
 ISR(PCINT0_vect){
-	
 	uint8_t changedbits;
 
 	//^ = XOR (exclusive OR, one bit or the other, but not both at the same time). Use to detect a bit that has changed.
@@ -126,11 +128,11 @@ ISR(PCINT0_vect){
 	changedbits = PINB ^ portbhistory;
 	portbhistory = PINB;
 	
-	if(changedbits & (1 << PB2))
+	if( (changedbits & (1 << PB3)) )
 	{
-		/* PCINT2 changed */
+		// PCINT2 changed
 		//Min just goes high, is now high
-		if(PINB & 1<<PORTB2){ //Be careful of assigning the good PORTBx
+		if(PINB & 1<<PORTB3){ //Be careful of assigning the good PORTBx
 			previousThrottle = TCNT1;
 		}
 		//Pin just goes low, is now low
@@ -162,5 +164,14 @@ uint32_t ticksToUs(uint32_t ticks){
 
 long map(long x, long in_min, long in_max, long out_min, long out_max)
 {
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+	long result = (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+	
+	if(result < out_min){
+		result = out_min;
+	}
+	else if(result > out_max){
+		result = out_max;
+	}
+  
+	return result; 
 }
