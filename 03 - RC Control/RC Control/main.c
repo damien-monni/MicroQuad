@@ -55,7 +55,10 @@ int main(void){
 
 	PCICR |= 1<<PCIE0; //Enable interrupt of PCINT7:0
 	PCMSK0 |= 1<<PCINT0 | 1<<PCINT1 | 1<<PCINT2 | 1<<PCINT3;
-
+	
+	TCCR0B |= 1<<CS00 | 1<<CS01 //timer 0 (8bit) prescaler 64
+	
+	
 	TCCR1B |= 1<<CS11; //Prescaler of 8 because 8MHz clock source
 	TIMSK1 |= (1<<OCIE1A); //Interrupt on OCR1A
 	OCR1A = servo[0]; //Set the first interrupt to occur when the first pulse was ended
@@ -136,13 +139,16 @@ ISR(PCINT0_vect, ISR_NOBLOCK){
 		//Min just goes high, is now high
 		if(PINB & 1<<PORTB3){ //Be careful of assigning the good PORTBx
 			previousThrottle = TCNT1;
+			//previousThrottle = TCNT0;
 		}
 		//Pin just goes low, is now low
 		else{
+			//if(TCNT0 > previousThrottle){
 			if(TCNT1 > previousThrottle){
 				throttle = ticksToUs(TCNT1 - previousThrottle);
 			}
 			else{
+				//throttle = ticksToUs((255 - previousThrottle) + TCNT0);
 				throttle = ticksToUs((usToTicks(20000) - previousThrottle) + TCNT1);
 			}
 		}
