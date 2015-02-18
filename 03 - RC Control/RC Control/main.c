@@ -33,11 +33,14 @@ const uint16_t rcMaxUs = 2000;
 const uint16_t motorMinUs = 700;
 const uint16_t motorMaxUs = 800;
 
+//Génrère les signaux PMW pour le contrôle des moteurs brushless
+void pmw();
+
 //Donne le temps d'execution du programme en ms (compte au max environ 1.5 mois soit environ 46 jours)
 //MIS A JOUR SEULEMENT TOUTES LES 20MS VIA LA GENERATION PMW.
 volatile uint32_t timeFromStartMs = 0;
 
-volatile unsigned int servo[4] = {700, 700, 700, 700}; //Initial speed in microseconds
+volatile unsigned int servo[4] = {2300, 2300, 2300, 2300}; //Initial speed in microseconds
 volatile int8_t channel = 1; //Controlled motor number : 1, 2, 3 or 4
 
 volatile uint16_t previousThrottle = 0; //Time from 70(1.1ms) to 125(2ms) on 8 bits timer
@@ -56,7 +59,7 @@ int main(void){
 	PCICR |= 1<<PCIE0; //Enable interrupt of PCINT7:0
 	PCMSK0 |= 1<<PCINT0 | 1<<PCINT1 | 1<<PCINT2 | 1<<PCINT3;
 	
-	TCCR0B |= 1<<CS00 | 1<<CS01 //timer 0 (8bit) prescaler 64
+	TCCR0B |= 1<<CS00 | 1<<CS01; //timer 0 (8bit) prescaler 64
 	
 	
 	TCCR1B |= 1<<CS11; //Prescaler of 8 because 8MHz clock source
@@ -78,8 +81,19 @@ int main(void){
 		
 		prevThrottle = throttle;*/
 		
+		if((timeFromStartMs > 2300) && (timeFromStartMs < 7000)){
+			servo[0] = 700;
+			servo[1] = 700;
+			servo[2] = 700;
+			servo[3] = 700;
+		}
+		
 		if(timeFromStartMs > 7000){
-			servo[3] = 800;
+			int16_t computedThrottle = map(throttle, 1400, 2000, 700, 1400);
+			servo[0] = computedThrottle;
+			servo[1] = computedThrottle;
+			servo[2] = computedThrottle;
+			servo[3] = computedThrottle;
 		}
 	}
 
@@ -89,35 +103,7 @@ int main(void){
 //PMW Building ISR
 ISR(TIMER1_COMPA_vect, ISR_NOBLOCK)
 {
-	if(channel < 0){ //Every motors was pulsed, waiting for the next period
-		//TODO : try to use TCNT1 >= usToTicks(20000) instead of TCNT1 >= 40000
-		if(TCNT1 >= usToTicks(20000)){ //50Hz with a prescaler of 8 at 16MHz
-			TCNT1 = 0;
-			channel = 1;
-			PORTD |= 1<<channel;
-			OCR1A = servo[0];
-			timeFromStartMs += 20;
-		}
-		else{
-			//TODO : try to use OCR1A = usToTicks(20000) instead of OCR1A = 40000
-			OCR1A = usToTicks(20000);
-		}
-	}
-	else{
-		if(channel < 4){ //Last servo pin just goes high
-			OCR1A = TCNT1 + servo[channel];
-			PORTD &= ~(1<<channel); //Clear actual motor pin
-			PORTD |= 1<<(channel + 1); //Set the next one
-			channel++;
-		}
-		else{
-			PORTD &= ~(1<<channel); //Clear the last motor pin
-			OCR1A = TCNT1 + 2000; //Call again the interrupt just after that
-			//CAN TRY TO =>
-			//OCR1A = usToTicks(20000);
-			channel = -1; //Wait for the next period
-		}
-	}
+	pmw();
 }
 
 ISR(PCINT0_vect, ISR_NOBLOCK){
@@ -145,12 +131,41 @@ ISR(PCINT0_vect, ISR_NOBLOCK){
 		else{
 			//if(TCNT0 > previousThrottle){
 			if(TCNT1 > previousThrottle){
+				//throttle = (((TCNT1 - previousThrottle) * 64.0) / clockSourceMhz);
 				throttle = ticksToUs(TCNT1 - previousThrottle);
 			}
 			else{
-				//throttle = ticksToUs((255 - previousThrottle) + TCNT0);
+				//throttle = ((((255 - previousThrottle) + TCNT0) * 64.0) / clockSourceMhz);
 				throttle = ticksToUs((usToTicks(20000) - previousThrottle) + TCNT1);
 			}
+		}
+	}
+}
+
+void pmw(){
+	if(channel < 0){ //Every motors was pulsed, waiting for the next period
+		if(TCNT1 >= usToTicks(20000)){ //50Hz with a prescaler of 8 at 16MHz
+			TCNT1 = 0;
+			channel = 1;
+			PORTD |= 1<<channel;
+			OCR1A = servo[0];
+			timeFromStartMs += 20;
+		}
+		else{
+			OCR1A = usToTicks(20000);
+		}
+	}
+	else{
+		if(channel < 4){ //Last servo pin just goes high
+			OCR1A = TCNT1 + servo[channel];
+			PORTD &= ~(1<<channel); //Clear actual motor pin
+			PORTD |= 1<<(channel + 1); //Set the next one
+			channel++;
+		}
+		else{
+			PORTD &= ~(1<<channel); //Clear the last motor pin
+			OCR1A = usToTicks(20000);
+			channel = -1; //Wait for the next period
 		}
 	}
 }
@@ -166,7 +181,7 @@ uint32_t usToTicks(uint32_t us){
 //Il est important de bien renseigner les deux constantes
 //globales clockSourceMhz et prescaler.
 uint32_t ticksToUs(uint32_t ticks){
-	return (ticks * (float)prescaler) / clockSourceMhz;
+	return ((ticks * (float)prescaler) / clockSourceMhz);
 }
 
 
