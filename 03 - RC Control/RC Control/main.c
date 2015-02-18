@@ -84,7 +84,7 @@ int main(void){
 }
 
 //PMW Building ISR
-ISR(TIMER1_COMPA_vect)
+ISR(TIMER1_COMPA_vect, ISR_NOBLOCK)
 {
 	if(channel < 0){ //Every motors was pulsed, waiting for the next period
 		//TODO : try to use TCNT1 >= usToTicks(20000) instead of TCNT1 >= 40000
@@ -110,12 +110,14 @@ ISR(TIMER1_COMPA_vect)
 		else{
 			PORTD &= ~(1<<channel); //Clear the last motor pin
 			OCR1A = TCNT1 + 2000; //Call again the interrupt just after that
+			//CAN TRY TO =>
+			//OCR1A = usToTicks(20000);
 			channel = -1; //Wait for the next period
 		}
 	}
 }
 
-ISR(PCINT0_vect){
+ISR(PCINT0_vect, ISR_NOBLOCK){
 	uint8_t changedbits;
 
 	//^ = XOR (exclusive OR, one bit or the other, but not both at the same time). Use to detect a bit that has changed.
