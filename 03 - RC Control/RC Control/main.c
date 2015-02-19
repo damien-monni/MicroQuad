@@ -33,9 +33,6 @@ const uint16_t rcMaxUs = 2000;
 const uint16_t motorMinUs = 700;
 const uint16_t motorMaxUs = 800;
 
-//Génrère les signaux PMW pour le contrôle des moteurs brushless
-void pmw();
-
 //Donne le temps d'execution du programme en ms (compte au max environ 1.5 mois soit environ 46 jours)
 //MIS A JOUR SEULEMENT TOUTES LES 20MS VIA LA GENERATION PMW.
 volatile uint32_t timeFromStartMs = 0;
@@ -54,6 +51,10 @@ volatile int16_t roll = 0; //Left or right
 volatile int16_t pitch = 0; //Up and down
 volatile int16_t yaw = 0; //Left or right in level fly
 
+//ISR functions
+void pmw();
+void pcint();
+
 int main(void){
 
 	PCICR |= 1<<PCIE0; //Enable interrupt of PCINT7:0
@@ -71,8 +72,6 @@ int main(void){
 	
 	sei(); //Enable global interrupts
 	
-	int16_t prevThrottle = 0;
-	
 	while(1){
 		
 		/*if(throttle != prevThrottle){
@@ -80,6 +79,8 @@ int main(void){
 		}
 		
 		prevThrottle = throttle;*/
+		int a = 0;
+		a = 15;
 		
 		if((timeFromStartMs > 2300) && (timeFromStartMs < 7000)){
 			servo[0] = 700;
@@ -88,6 +89,7 @@ int main(void){
 			servo[3] = 700;
 		}
 		
+		
 		if(timeFromStartMs > 7000){
 			int16_t computedThrottle = map(throttle, 1400, 2000, 700, 1400);
 			servo[0] = computedThrottle;
@@ -95,18 +97,60 @@ int main(void){
 			servo[2] = computedThrottle;
 			servo[3] = computedThrottle;
 		}
+		
+		if(TCNT1 > OCR1A + 5){
+			pmw();
+		}
 	}
 
 	return 0;
 }
 
 //PMW Building ISR
-ISR(TIMER1_COMPA_vect, ISR_NOBLOCK)
+ISR(TIMER1_COMPA_vect)
 {
+	cli();
 	pmw();
+	sei();
+}
+
+void pmw(){
+	uint16_t timerValue = TCNT1;
+	if(channel < 0){ //Every motors was pulsed, waiting for the next period
+		if(timerValue >= usToTicks(20000)){ //50Hz with a prescaler of 8 at 16MHz
+			TCNT1 = 0;
+			channel = 1;
+			PORTD |= 1<<channel;
+			OCR1A = servo[0];
+			timeFromStartMs += 20;
+		}
+		else{
+			//OCR1A = TCNT1 + 100;
+			//OCR1A = usToTicks(20000);
+		}
+	}
+	else{
+		if(channel < 4){ //Last servo pin just goes high
+			OCR1A = timerValue + servo[channel];
+			PORTD &= ~(1<<channel); //Clear actual motor pin
+			PORTD |= 1<<(channel + 1); //Set the next one
+			channel++;
+		}
+		else{
+			PORTD &= ~(1<<channel); //Clear the last motor pin
+			OCR1A = usToTicks(20000);
+			channel = -1; //Wait for the next period
+		}
+	}
 }
 
 ISR(PCINT0_vect, ISR_NOBLOCK){
+	pcint();
+}
+
+void pcint(){
+uint16_t timerValue = TCNT1;
+	
 	uint8_t changedbits;
 
 	//^ = XOR (exclusive OR, one bit or the other, but not both at the same time). Use to detect a bit that has changed.
@@ -124,48 +168,20 @@ ISR(PCINT0_vect, ISR_NOBLOCK){
 		// PCINT2 changed
 		//Min just goes high, is now high
 		if(PINB & 1<<PORTB3){ //Be careful of assigning the good PORTBx
-			previousThrottle = TCNT1;
+			previousThrottle = timerValue;
 			//previousThrottle = TCNT0;
 		}
 		//Pin just goes low, is now low
 		else{
 			//if(TCNT0 > previousThrottle){
-			if(TCNT1 > previousThrottle){
+			if(timerValue > previousThrottle){
 				//throttle = (((TCNT1 - previousThrottle) * 64.0) / clockSourceMhz);
-				throttle = ticksToUs(TCNT1 - previousThrottle);
+				throttle = ticksToUs(timerValue - previousThrottle);
 			}
 			else{
 				//throttle = ((((255 - previousThrottle) + TCNT0) * 64.0) / clockSourceMhz);
-				throttle = ticksToUs((usToTicks(20000) - previousThrottle) + TCNT1);
+				throttle = ticksToUs((usToTicks(20000) - previousThrottle) + timerValue);
 			}
-		}
-	}
-}
-
-void pmw(){
-	if(channel < 0){ //Every motors was pulsed, waiting for the next period
-		if(TCNT1 >= usToTicks(20000)){ //50Hz with a prescaler of 8 at 16MHz
-			TCNT1 = 0;
-			channel = 1;
-			PORTD |= 1<<channel;
-			OCR1A = servo[0];
-			timeFromStartMs += 20;
-		}
-		else{
-			OCR1A = usToTicks(20000);
-		}
-	}
-	else{
-		if(channel < 4){ //Last servo pin just goes high
-			OCR1A = TCNT1 + servo[channel];
-			PORTD &= ~(1<<channel); //Clear actual motor pin
-			PORTD |= 1<<(channel + 1); //Set the next one
-			channel++;
-		}
-		else{
-			PORTD &= ~(1<<channel); //Clear the last motor pin
-			OCR1A = usToTicks(20000);
-			channel = -1; //Wait for the next period
 		}
 	}
 }
