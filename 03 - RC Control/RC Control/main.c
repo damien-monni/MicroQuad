@@ -125,8 +125,7 @@ void pmw(){
 			timeFromStartMs += 20;
 		}
 		else{
-			//OCR1A = TCNT1 + 100;
-			//OCR1A = usToTicks(20000);
+			OCR1A = usToTicks(20000);
 		}
 	}
 	else{
