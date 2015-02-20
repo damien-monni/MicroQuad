@@ -41,12 +41,13 @@ volatile unsigned int servo[4] = {2300, 2300, 2300, 2300}; //Initial speed in mi
 volatile int8_t channel = 1; //Controlled motor number : 1, 2, 3 or 4
 
 volatile uint16_t previousThrottle = 0; //Time from 70(1.1ms) to 125(2ms) on 8 bits timer
+volatile int8_t rcIsLow = -1;
 
 //For interrupts PCINT
 volatile uint8_t portbhistory = 0;
 
 //RC commands
-volatile int16_t throttle = 0; //Altitude control
+volatile int16_t throttleUs = 0; //Altitude control
 volatile int16_t roll = 0; //Left or right
 volatile int16_t pitch = 0; //Up and down
 volatile int16_t yaw = 0; //Left or right in level fly
@@ -74,14 +75,6 @@ int main(void){
 	
 	while(1){
 		
-		/*if(throttle != prevThrottle){
-			servo[3] = map(throttle, 1400, 2000, 700, 800); //Need to be corrected with ticksToUS taking in account...	
-		}
-		
-		prevThrottle = throttle;*/
-		int a = 0;
-		a = 15;
-		
 		if((timeFromStartMs > 2300) && (timeFromStartMs < 7000)){
 			servo[0] = 700;
 			servo[1] = 700;
@@ -91,16 +84,18 @@ int main(void){
 		
 		
 		if(timeFromStartMs > 7000){
-			int16_t computedThrottle = map(throttle, 1400, 2000, 700, 1400);
+			int16_t computedThrottle = map(throttleUs, 1400, 2000, 700, 1400);
 			servo[0] = computedThrottle;
 			servo[1] = computedThrottle;
 			servo[2] = computedThrottle;
 			servo[3] = computedThrottle;
 		}
 		
+		/*
 		if(TCNT1 > OCR1A + 5){
 			pmw();
 		}
+		*/
 	}
 
 	return 0;
@@ -162,24 +157,28 @@ uint16_t timerValue = TCNT1;
 	changedbits = PINB ^ portbhistory;
 	portbhistory = PINB;
 	
+	//PCINT3 changed
 	if( (changedbits & (1 << PB3)) )
 	{
-		// PCINT2 changed
 		//Min just goes high, is now high
 		if(PINB & 1<<PORTB3){ //Be careful of assigning the good PORTBx
 			previousThrottle = timerValue;
-			//previousThrottle = TCNT0;
 		}
 		//Pin just goes low, is now low
 		else{
-			//if(TCNT0 > previousThrottle){
 			if(timerValue > previousThrottle){
-				//throttle = (((TCNT1 - previousThrottle) * 64.0) / clockSourceMhz);
-				throttle = ticksToUs(timerValue - previousThrottle);
+				throttleUs = ticksToUs(timerValue - previousThrottle);
 			}
 			else{
-				//throttle = ((((255 - previousThrottle) + TCNT0) * 64.0) / clockSourceMhz);
-				throttle = ticksToUs((usToTicks(20000) - previousThrottle) + timerValue);
+				throttleUs = ticksToUs((usToTicks(20000) - previousThrottle) + timerValue);
+			}
+			
+			//Constrain value between motorMaxUs and motorMinUs
+			if(throttleUs > motorMaxUs){
+				throttleUs = motorMaxUs;
+			}
+			else if(throttleUs < motorMinUs){
+				throttleUs = motorMinUs;
 			}
 		}
 	}
