@@ -1,4 +1,2 @@
-#100
-$break
-PORTD |= 8
-$break
+#14000
+PORTB |= 8

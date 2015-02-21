@@ -40,6 +40,7 @@ volatile uint32_t timeFromStartMs = 0;
 
 volatile unsigned int servo[4] = {2300, 2300, 2300, 2300}; //Initial speed in microseconds
 volatile int8_t channel = 1; //Controlled motor number : 1, 2, 3 or 4
+volatile uint16_t startPmwTcnt1 = 0; //TCNT1 value when the PMW cycle starts
 
 volatile uint16_t previousThrottle = 0; //Time from 70(1.1ms) to 125(2ms) on 8 bits timer
 volatile int8_t rcIsLow = -1;
@@ -118,16 +119,12 @@ ISR(TIMER1_COMPA_vect)
 void pmw(){
 	uint16_t timerValue = TCNT1;
 	if(channel < 0){ //Every motors was pulsed, waiting for the next period
-		if(timerValue >= usToTicks(20000)){ //50Hz with a prescaler of 8 at 16MHz
-			TCNT1 = 0;
-			channel = 1;
-			PORTD |= 1<<channel;
-			OCR1A = servo[0];
-			timeFromStartMs += 20;
-		}	
-		else{
-			OCR1A = usToTicks(20000);
-		}
+		//TCNT1 = 0;
+		channel = 1;
+		PORTD |= 1<<channel;
+		startPmwTcnt1 = timerValue;
+		OCR1A = timerValue + servo[0];
+		timeFromStartMs += 20;
 	}
 	else{
 		if(channel < 4){ //Last servo pin just goes high
@@ -138,7 +135,7 @@ void pmw(){
 		}
 		else{
 			PORTD &= ~(1<<channel); //Clear the last motor pin
-			OCR1A = usToTicks(20000);
+			OCR1A = startPmwTcnt1 + usToTicks(20000);
 			channel = -1; //Wait for the next period
 		}
 	}
