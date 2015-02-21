@@ -42,7 +42,7 @@ volatile unsigned int servo[4] = {2300, 2300, 2300, 2300}; //Initial speed in mi
 volatile int8_t channel = 1; //Controlled motor number : 1, 2, 3 or 4
 volatile uint16_t startPmwTcnt1 = 0; //TCNT1 value when the PMW cycle starts
 
-volatile uint16_t previousThrottle = 0; //Time from 70(1.1ms) to 125(2ms) on 8 bits timer
+volatile int16_t previousThrottle = 0; //Time from 70(1.1ms) to 125(2ms) on 8 bits timer
 volatile int8_t rcIsLow = -1;
 
 //For interrupts PCINT
@@ -57,6 +57,8 @@ volatile int16_t yaw = 0; //Left or right in level fly
 //ISR functions
 void pmw();
 void pcint();
+
+volatile uint16_t countDebug = 0;
 
 int main(void){
 
@@ -77,7 +79,11 @@ int main(void){
 	
 	while(1){
 	
-		int16_t computedThrottle;
+		/*if(countDebug > 10){
+			PORTD |= 1<<PORTD0;
+		}*/
+	
+		uint16_t computedThrottle;
 		
 		if((timeFromStartMs > 2300) && (timeFromStartMs < 7000)){
 			servo[0] = 700;
@@ -87,18 +93,19 @@ int main(void){
 		}
 	
 		
-		if((timeFromStartMs > 7000) && (timeFromStartMs < 15000)){
+		if((timeFromStartMs > 7000) && (timeFromStartMs < 60000)){
 			ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
 			{	
 				computedThrottle = map(throttleUs, rcMinUs, rcMaxUs, motorMinUs, motorMaxUs);
 			}
-			servo[0] = 900;//computedThrottle;
-			servo[1] = 900;//computedThrottle;
-			servo[2] = 900;//computedThrottle;
-			servo[3] = 900;//computedThrottle;
+			
+			servo[0] = ((float)throttleUs - 1400) * (1400 - 700) / (2000 - 1400) + 700;
+			servo[1] = ((float)throttleUs - 1400) * (1400 - 700) / (2000 - 1400) + 700;
+			servo[2] = ((float)throttleUs - 1400) * (1400 - 700) / (2000 - 1400) + 700;
+			servo[3] = ((float)throttleUs - 1400) * (1400 - 700) / (2000 - 1400) + 700;
 		}
 		
-		if(timeFromStartMs > 15000){
+		if(timeFromStartMs > 60000){
 			servo[0] = 700;
 			servo[1] = 700;
 			servo[2] = 700;
@@ -169,20 +176,26 @@ uint16_t timerValue = TCNT1;
 		}
 		//Pin just goes low, is now low
 		else{
+			int16_t tempThrottle;
 			if(timerValue > previousThrottle){
-				throttleUs = ticksToUs(timerValue - previousThrottle);
+				tempThrottle = ticksToUs(timerValue - previousThrottle);
 			}
 			else{
-				throttleUs = ticksToUs((usToTicks(20000) - previousThrottle) + timerValue);
+				tempThrottle = ticksToUs((usToTicks(20000) - previousThrottle) + timerValue);
 			}
-			
-			//Constrain value between motorMaxUs and motorMinUs
-			/*if(throttleUs > motorMaxUs){
-				throttleUs = motorMaxUs;
+			if(tempThrottle > 1800){
+				PORTD |= 1<< PORTD0;
 			}
-			else if(throttleUs < motorMinUs){
-				throttleUs = motorMinUs;
-			}*/
+			else{
+				PORTD &= ~(1<<PORTD0);
+			}
+				
+			if((tempThrottle >= (rcMinUs - 400)) && (tempThrottle <= (rcMaxUs + 400))){
+				throttleUs = tempThrottle;
+			}
+			else{
+				countDebug++;
+			}
 		}
 	}
 }
