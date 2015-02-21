@@ -10,6 +10,7 @@ Initial speeds in microsecond should be enter in the servo[] table.
 #include <util/delay.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <util/atomic.h>
 
 //Renvoie le nombre de tops d'horloge d'une durée donnée en microseconde
 //Il est important de bien renseigner les deux constantes
@@ -31,7 +32,7 @@ const uint8_t prescaler = 8;
 const uint16_t rcMinUs = 1400;
 const uint16_t rcMaxUs = 2000;
 const uint16_t motorMinUs = 700;
-const uint16_t motorMaxUs = 800;
+const uint16_t motorMaxUs = 1400;
 
 //Donne le temps d'execution du programme en ms (compte au max environ 1.5 mois soit environ 46 jours)
 //MIS A JOUR SEULEMENT TOUTES LES 20MS VIA LA GENERATION PMW.
@@ -59,7 +60,7 @@ void pcint();
 int main(void){
 
 	PCICR |= 1<<PCIE0; //Enable interrupt of PCINT7:0
-	PCMSK0 |= 1<<PCINT0 | 1<<PCINT1 | 1<<PCINT2 | 1<<PCINT3;
+	PCMSK0 |= 1<<PCINT3;
 	
 	TCCR0B |= 1<<CS00 | 1<<CS01; //timer 0 (8bit) prescaler 64
 	
@@ -74,6 +75,8 @@ int main(void){
 	sei(); //Enable global interrupts
 	
 	while(1){
+	
+		int16_t computedThrottle;
 		
 		if((timeFromStartMs > 2300) && (timeFromStartMs < 7000)){
 			servo[0] = 700;
@@ -81,21 +84,26 @@ int main(void){
 			servo[2] = 700;
 			servo[3] = 700;
 		}
+	
 		
-		
-		if(timeFromStartMs > 7000){
-			int16_t computedThrottle = map(throttleUs, 1400, 2000, 700, 1400);
-			servo[0] = computedThrottle;
-			servo[1] = computedThrottle;
-			servo[2] = computedThrottle;
-			servo[3] = computedThrottle;
+		if((timeFromStartMs > 7000) && (timeFromStartMs < 15000)){
+			ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+			{	
+				computedThrottle = map(throttleUs, rcMinUs, rcMaxUs, motorMinUs, motorMaxUs);
+			}
+			servo[0] = 900;//computedThrottle;
+			servo[1] = 900;//computedThrottle;
+			servo[2] = 900;//computedThrottle;
+			servo[3] = 900;//computedThrottle;
 		}
 		
-		/*
-		if(TCNT1 > OCR1A + 5){
-			pmw();
+		if(timeFromStartMs > 15000){
+			servo[0] = 700;
+			servo[1] = 700;
+			servo[2] = 700;
+			servo[3] = 700;
 		}
-		*/
+		
 	}
 
 	return 0;
@@ -104,9 +112,7 @@ int main(void){
 //PMW Building ISR
 ISR(TIMER1_COMPA_vect)
 {
-	cli();
 	pmw();
-	sei();
 }
 
 void pmw(){
@@ -118,7 +124,7 @@ void pmw(){
 			PORTD |= 1<<channel;
 			OCR1A = servo[0];
 			timeFromStartMs += 20;
-		}
+		}	
 		else{
 			OCR1A = usToTicks(20000);
 		}
@@ -138,7 +144,7 @@ void pmw(){
 	}
 }
 
-ISR(PCINT0_vect, ISR_NOBLOCK){
+ISR(PCINT0_vect){
 	pcint();
 }
 
@@ -174,12 +180,12 @@ uint16_t timerValue = TCNT1;
 			}
 			
 			//Constrain value between motorMaxUs and motorMinUs
-			if(throttleUs > motorMaxUs){
+			/*if(throttleUs > motorMaxUs){
 				throttleUs = motorMaxUs;
 			}
 			else if(throttleUs < motorMinUs){
 				throttleUs = motorMinUs;
-			}
+			}*/
 		}
 	}
 }
