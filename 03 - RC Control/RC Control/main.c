@@ -79,9 +79,9 @@ int main(void){
 	
 	while(1){
 	
-		/*if(countDebug > 10){
+		if((timeFromStartMs > 7000) && (timeFromStartMs < 7500)){
 			PORTD |= 1<<PORTD0;
-		}*/
+		}
 	
 		uint16_t computedThrottle;
 		
@@ -93,19 +93,20 @@ int main(void){
 		}
 	
 		
-		if((timeFromStartMs > 7000) && (timeFromStartMs < 60000)){
+		if((timeFromStartMs > 7000) && (timeFromStartMs < 45000)){
 			ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
 			{	
-				computedThrottle = map(throttleUs, rcMinUs, rcMaxUs, motorMinUs, motorMaxUs);
+				//computedThrottle = map(throttleUs, rcMinUs, rcMaxUs, motorMinUs, motorMaxUs);
+				computedThrottle = ((float)throttleUs - 1400) * (1400 - 700) / (2000 - 1400) + 700;
 			}
 			
-			servo[0] = ((float)throttleUs - 1400) * (1400 - 700) / (2000 - 1400) + 700;
-			servo[1] = ((float)throttleUs - 1400) * (1400 - 700) / (2000 - 1400) + 700;
-			servo[2] = ((float)throttleUs - 1400) * (1400 - 700) / (2000 - 1400) + 700;
-			servo[3] = ((float)throttleUs - 1400) * (1400 - 700) / (2000 - 1400) + 700;
+			servo[0] = computedThrottle;
+			servo[1] = computedThrottle;
+			servo[2] = computedThrottle;
+			servo[3] = computedThrottle;
 		}
 		
-		if(timeFromStartMs > 60000){
+		if(timeFromStartMs > 45000){
 			servo[0] = 700;
 			servo[1] = 700;
 			servo[2] = 700;
@@ -217,7 +218,7 @@ uint32_t ticksToUs(uint32_t ticks){
 
 float map(float x, float in_min, float in_max, float out_min, float out_max)
 {
-	long result = (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+	float result = (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 	
 	if(result < out_min){
 		result = out_min;
