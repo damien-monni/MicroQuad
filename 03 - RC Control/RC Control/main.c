@@ -63,6 +63,8 @@ volatile uint16_t pitchCenterUs = 0;
 volatile uint16_t pitchCenterCounter = 0;
 volatile uint8_t pitchCenterCalculated = 0;
 
+uint8_t pcintNb = 0;
+
 //ISR functions
 void pmw();
 void pcint();
@@ -89,6 +91,7 @@ int main(void){
 	while(1){
 	
 		unsigned int computedThrottle;
+		unsigned int computedPitch;
 		
 		if((timeFromStartMs > 2300) && (timeFromStartMs < 7000)){
 			servo[0] = 700;
@@ -98,24 +101,22 @@ int main(void){
 		}
 	
 		
-		if((timeFromStartMs > 7000) && (timeFromStartMs < 20000)){
-			ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+		if((timeFromStartMs > 7000) && (timeFromStartMs < 40000)){
+			/*ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
 			{	
-				//MAP => (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-				//computedThrottle = map(throttleUs, rcMinUs, rcMaxUs, motorMinUs, motorMaxUs);
-				//computedThrottle = ((float)throttleUs - 1400) * (1400.f - 700) / (2000.f - 1400) + 700.f;
-			}
+
+			}*/
 			
-			//servo[0] = (((float)pitchUs - pitchCenterUs) * (1400 - 700) / (2000 - pitchCenterUs) + 700);
+			computedThrottle = (((float)throttleUs - throttleInitUs) * (motorMaxUs - motorMinUs) / (rcMaxUs - throttleInitUs) + motorMinUs);
+			computedPitch = ((((float)pitchUs - pitchCenterUs) * (300 - 0) / (rcMaxUs - pitchCenterUs) + 0));
 			
-			servo[0] = /*(((float)throttleUs - throttleInitUs) * (motorMaxUs - motorMinUs) / (rcMaxUs - throttleInitUs) + motorMinUs) +*/ ((((float)pitchUs - pitchCenterUs) * (1400 - 700) / (rcMaxUs - pitchCenterUs) + 700));
-			/*servo[0] = (((float)pitchUs - 1400) * (1400 - 700) / (2000 - 1400) + 700);
-			servo[1] = (((float)pitchUs - 1400) * (1400 - 700) / (2000 - 1400) + 700);
-			servo[2] = (((float)pitchUs - 1400) * (1400 - 700) / (2000 - 1400) + 700);
-			servo[3] = (((float)pitchUs - 1400) * (1400 - 700) / (2000 - 1400) + 700);*/
+			servo[0] = computedThrottle;
+			servo[1] = computedThrottle + computedPitch;
+			servo[2] = computedThrottle;
+			servo[3] = computedThrottle + computedPitch;
 		}
 		
-		if(timeFromStartMs > 20000){ 
+		if(timeFromStartMs > 40000){ 
 			servo[0] = 700;
 			servo[1] = 700;
 			servo[2] = 700;
@@ -178,75 +179,81 @@ uint16_t timerValue = TCNT1;
 	changedbits = PINB ^ portbhistory;
 	portbhistory = PINB;
 	
+	if(pcintNb == 0){
 	//PCINT3 changed
-	if( (changedbits & (1 << PB3)) )
-	{
-		//Min just goes high, is now high
-		if(PINB & 1<<PORTB3){ //Be careful of assigning the good PORTBx
-			previousThrottle = timerValue;
-		}
-		//Pin just goes low, is now low
-		else{
-			int16_t tempThrottle;
-			if(timerValue > previousThrottle){
-				tempThrottle = ticksToUs(timerValue - previousThrottle);
+		if( (changedbits & (1 << PB3)) )
+		{
+			//Min just goes high, is now high
+			if(PINB & 1<<PORTB3){ //Be careful of assigning the good PORTBx
+				previousThrottle = timerValue;
 			}
+			//Pin just goes low, is now low
 			else{
-				tempThrottle = ticksToUs((usToTicks(20000) - previousThrottle) + timerValue);
-			}
-				
-			if((tempThrottle >= (rcMinUs - 400)) && (tempThrottle <= (rcMaxUs + 400))){
-				throttleUs = tempThrottle;
-				if((timeFromStartMs > 1000) && (timeFromStartMs < 2000)){
-					if((throttleInitCounter < 60000) && (throttleInitUs < 60000)){
-						throttleInitCounter++;
-						throttleInitUs += throttleUs;
+				int16_t tempThrottle;
+				if(timerValue > previousThrottle){
+					tempThrottle = ticksToUs(timerValue - previousThrottle);
+				}
+				else{
+					tempThrottle = ticksToUs((usToTicks(20000) - previousThrottle) + timerValue);
+				}
+					
+				if((tempThrottle >= (rcMinUs - 400)) && (tempThrottle <= (rcMaxUs + 400))){
+					throttleUs = tempThrottle;
+					pcintNb = 1;
+					if((timeFromStartMs > 1000) && (timeFromStartMs < 2000)){
+						if((throttleInitCounter < 60000) && (throttleInitUs < 60000)){
+							throttleInitCounter++;
+							throttleInitUs += throttleUs;
+						}
+					}
+					else if((throttleInitCalculated == 0) && (timeFromStartMs > 2000) && (timeFromStartMs < 3000)){
+						throttleInitUs = (float)throttleInitUs / (float)throttleInitCounter;
+						throttleInitCalculated = 1;
 					}
 				}
-				else if((throttleInitCalculated == 0) && (timeFromStartMs > 2000) && (timeFromStartMs < 3000)){
-					throttleInitUs = (float)throttleInitUs / (float)throttleInitCounter;
-					throttleInitCalculated = 1;
+				else{
+					countDebug++;
 				}
-			}
-			else{
-				countDebug++;
 			}
 		}
 	}
-	//PCINT4 changed
-	else if( (changedbits & (1 << PB4)) )
-	{
-		//Min just goes high, is now high
-		if(PINB & 1<<PORTB4){ //Be careful of assigning the good PORTBx
-			previousPitch = timerValue;
-		}
-		//Pin just goes low, is now low
-		else{
-			int16_t tempPitch;
-			if(timerValue > previousPitch){
-				tempPitch = ticksToUs(timerValue - previousPitch);
+	else if(pcintNb == 1){
+		//PCINT4 changed
+		if( (changedbits & (1 << PB4)) )
+		{
+			//Min just goes high, is now high
+			if(PINB & 1<<PORTB4){ //Be careful of assigning the good PORTBx
+				previousPitch = timerValue;
 			}
+			//Pin just goes low, is now low
 			else{
-				tempPitch = ticksToUs((usToTicks(20000) - previousPitch) + timerValue);
-			}
-				
-			if((tempPitch >= (rcMinUs - 400)) && (tempPitch <= (rcMaxUs + 400))){
-				pitchUs = tempPitch;
-				if((timeFromStartMs > 1000) && (timeFromStartMs < 2000)){
-					if((pitchCenterCounter < 60000) && (pitchCenterUs < 60000)){
-						pitchCenterCounter++;
-						pitchCenterUs += pitchUs;
+				int16_t tempPitch;
+				if(timerValue > previousPitch){
+					tempPitch = ticksToUs(timerValue - previousPitch);
+				}
+				else{
+					tempPitch = ticksToUs((usToTicks(20000) - previousPitch) + timerValue);
+				}
+					
+				if((tempPitch >= (rcMinUs - 400)) && (tempPitch <= (rcMaxUs + 400))){
+					pitchUs = tempPitch;
+					pcintNb = 0;
+					if((timeFromStartMs > 1000) && (timeFromStartMs < 2000)){
+						if((pitchCenterCounter < 60000) && (pitchCenterUs < 60000)){
+							pitchCenterCounter++;
+							pitchCenterUs += pitchUs;
+						}
+					}
+					else if((pitchCenterCalculated == 0) && (timeFromStartMs > 2000) && (timeFromStartMs < 3000)){
+						pitchCenterUs = (float)pitchCenterUs / (float)pitchCenterCounter;
+						pitchCenterCalculated = 1;
 					}
 				}
-				else if((pitchCenterCalculated == 0) && (timeFromStartMs > 2000) && (timeFromStartMs < 3000)){
-					pitchCenterUs = (float)pitchCenterUs / (float)pitchCenterCounter;
-					pitchCenterCalculated = 1;
+				else{
+					countDebug++;
 				}
+			
 			}
-			else{
-				countDebug++;
-			}
-		
 		}
 	}
 }
