@@ -43,6 +43,7 @@ volatile int8_t channel = 1; //Controlled motor number : 1, 2, 3 or 4
 volatile uint16_t startPmwTcnt1 = 0; //TCNT1 value when the PMW cycle starts
 
 volatile int16_t previousThrottle = 0; //Time from 70(1.1ms) to 125(2ms) on 8 bits timer
+volatile int16_t previousPitch = 0;
 volatile int8_t rcIsLow = -1;
 
 //For interrupts PCINT
@@ -50,9 +51,17 @@ volatile uint8_t portbhistory = 0;
 
 //RC commands
 volatile int16_t throttleUs = 0; //Altitude control
-volatile int16_t roll = 0; //Left or right
-volatile int16_t pitch = 0; //Up and down
-volatile int16_t yaw = 0; //Left or right in level fly
+volatile int16_t rollUs = 0; //Left or right
+volatile int16_t pitchUs = 0; //Up and down
+volatile int16_t yawUs = 0; //Left or right in level fly
+
+volatile uint16_t throttleInitUs = 0;
+volatile uint16_t throttleInitCounter = 0;
+volatile uint8_t throttleInitCalculated = 0;
+
+volatile uint16_t pitchCenterUs = 0;
+volatile uint16_t pitchCenterCounter = 0;
+volatile uint8_t pitchCenterCalculated = 0;
 
 //ISR functions
 void pmw();
@@ -63,7 +72,7 @@ volatile uint16_t countDebug = 0;
 int main(void){
 
 	PCICR |= 1<<PCIE0; //Enable interrupt of PCINT7:0
-	PCMSK0 |= 1<<PCINT3;
+	PCMSK0 |= 1<<PCINT3 | 1<<PCINT4;
 	
 	TCCR0B |= 1<<CS00 | 1<<CS01; //timer 0 (8bit) prescaler 64
 	
@@ -79,11 +88,7 @@ int main(void){
 	
 	while(1){
 	
-		if((timeFromStartMs > 7000) && (timeFromStartMs < 7500)){
-			PORTD |= 1<<PORTD0;
-		}
-	
-		uint16_t computedThrottle;
+		unsigned int computedThrottle;
 		
 		if((timeFromStartMs > 2300) && (timeFromStartMs < 7000)){
 			servo[0] = 700;
@@ -93,20 +98,24 @@ int main(void){
 		}
 	
 		
-		if((timeFromStartMs > 7000) && (timeFromStartMs < 45000)){
+		if((timeFromStartMs > 7000) && (timeFromStartMs < 20000)){
 			ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
 			{	
+				//MAP => (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 				//computedThrottle = map(throttleUs, rcMinUs, rcMaxUs, motorMinUs, motorMaxUs);
-				computedThrottle = ((float)throttleUs - 1400) * (1400 - 700) / (2000 - 1400) + 700;
+				//computedThrottle = ((float)throttleUs - 1400) * (1400.f - 700) / (2000.f - 1400) + 700.f;
 			}
 			
-			servo[0] = computedThrottle;
-			servo[1] = computedThrottle;
-			servo[2] = computedThrottle;
-			servo[3] = computedThrottle;
+			//servo[0] = (((float)pitchUs - pitchCenterUs) * (1400 - 700) / (2000 - pitchCenterUs) + 700);
+			
+			servo[0] = /*(((float)throttleUs - throttleInitUs) * (motorMaxUs - motorMinUs) / (rcMaxUs - throttleInitUs) + motorMinUs) +*/ ((((float)pitchUs - pitchCenterUs) * (1400 - 700) / (rcMaxUs - pitchCenterUs) + 700));
+			/*servo[0] = (((float)pitchUs - 1400) * (1400 - 700) / (2000 - 1400) + 700);
+			servo[1] = (((float)pitchUs - 1400) * (1400 - 700) / (2000 - 1400) + 700);
+			servo[2] = (((float)pitchUs - 1400) * (1400 - 700) / (2000 - 1400) + 700);
+			servo[3] = (((float)pitchUs - 1400) * (1400 - 700) / (2000 - 1400) + 700);*/
 		}
 		
-		if(timeFromStartMs > 45000){
+		if(timeFromStartMs > 20000){ 
 			servo[0] = 700;
 			servo[1] = 700;
 			servo[2] = 700;
@@ -154,6 +163,7 @@ ISR(PCINT0_vect){
 }
 
 void pcint(){
+
 uint16_t timerValue = TCNT1;
 	
 	uint8_t changedbits;
@@ -184,19 +194,59 @@ uint16_t timerValue = TCNT1;
 			else{
 				tempThrottle = ticksToUs((usToTicks(20000) - previousThrottle) + timerValue);
 			}
-			if(tempThrottle > 1800){
-				PORTD |= 1<< PORTD0;
-			}
-			else{
-				PORTD &= ~(1<<PORTD0);
-			}
 				
 			if((tempThrottle >= (rcMinUs - 400)) && (tempThrottle <= (rcMaxUs + 400))){
 				throttleUs = tempThrottle;
+				if((timeFromStartMs > 1000) && (timeFromStartMs < 2000)){
+					if((throttleInitCounter < 60000) && (throttleInitUs < 60000)){
+						throttleInitCounter++;
+						throttleInitUs += throttleUs;
+					}
+				}
+				else if((throttleInitCalculated == 0) && (timeFromStartMs > 2000) && (timeFromStartMs < 3000)){
+					throttleInitUs = (float)throttleInitUs / (float)throttleInitCounter;
+					throttleInitCalculated = 1;
+				}
 			}
 			else{
 				countDebug++;
 			}
+		}
+	}
+	//PCINT4 changed
+	else if( (changedbits & (1 << PB4)) )
+	{
+		//Min just goes high, is now high
+		if(PINB & 1<<PORTB4){ //Be careful of assigning the good PORTBx
+			previousPitch = timerValue;
+		}
+		//Pin just goes low, is now low
+		else{
+			int16_t tempPitch;
+			if(timerValue > previousPitch){
+				tempPitch = ticksToUs(timerValue - previousPitch);
+			}
+			else{
+				tempPitch = ticksToUs((usToTicks(20000) - previousPitch) + timerValue);
+			}
+				
+			if((tempPitch >= (rcMinUs - 400)) && (tempPitch <= (rcMaxUs + 400))){
+				pitchUs = tempPitch;
+				if((timeFromStartMs > 1000) && (timeFromStartMs < 2000)){
+					if((pitchCenterCounter < 60000) && (pitchCenterUs < 60000)){
+						pitchCenterCounter++;
+						pitchCenterUs += pitchUs;
+					}
+				}
+				else if((pitchCenterCalculated == 0) && (timeFromStartMs > 2000) && (timeFromStartMs < 3000)){
+					pitchCenterUs = (float)pitchCenterUs / (float)pitchCenterCounter;
+					pitchCenterCalculated = 1;
+				}
+			}
+			else{
+				countDebug++;
+			}
+		
 		}
 	}
 }
