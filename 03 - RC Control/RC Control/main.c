@@ -184,7 +184,7 @@ uint16_t timerValue = TCNT1;
 		if( (changedbits & (1 << PB3)) )
 		{
 			//Min just goes high, is now high
-			if(PINB & 1<<PORTB3){ //Be careful of assigning the good PORTBx
+			if(portbhistory & 1<<PORTB3){ //Be careful of assigning the good PORTBx
 				previousThrottle = timerValue;
 			}
 			//Pin just goes low, is now low
@@ -194,14 +194,14 @@ uint16_t timerValue = TCNT1;
 					tempThrottle = ticksToUs(timerValue - previousThrottle);
 				}
 				else{
-					tempThrottle = ticksToUs((usToTicks(20000) - previousThrottle) + timerValue);
+					tempThrottle = ticksToUs((65536 - previousThrottle) + timerValue);
 				}
 					
 				if((tempThrottle >= (rcMinUs - 400)) && (tempThrottle <= (rcMaxUs + 400))){
 					throttleUs = tempThrottle;
 					pcintNb = 1;
 					if((timeFromStartMs > 1000) && (timeFromStartMs < 2000)){
-						if((throttleInitCounter < 60000) && (throttleInitUs < 60000)){
+						if((throttleInitCounter < 60000) && (throttleInitUs < 40000)){
 							throttleInitCounter++;
 							throttleInitUs += throttleUs;
 						}
@@ -222,7 +222,7 @@ uint16_t timerValue = TCNT1;
 		if( (changedbits & (1 << PB4)) )
 		{
 			//Min just goes high, is now high
-			if(PINB & 1<<PORTB4){ //Be careful of assigning the good PORTBx
+			if(portbhistory & 1<<PORTB4){ //Be careful of assigning the good PORTBx
 				previousPitch = timerValue;
 			}
 			//Pin just goes low, is now low
@@ -232,14 +232,14 @@ uint16_t timerValue = TCNT1;
 					tempPitch = ticksToUs(timerValue - previousPitch);
 				}
 				else{
-					tempPitch = ticksToUs((usToTicks(20000) - previousPitch) + timerValue);
+					tempPitch = ticksToUs((65536 - previousPitch) + timerValue);
 				}
 					
 				if((tempPitch >= (rcMinUs - 400)) && (tempPitch <= (rcMaxUs + 400))){
 					pitchUs = tempPitch;
 					pcintNb = 0;
 					if((timeFromStartMs > 1000) && (timeFromStartMs < 2000)){
-						if((pitchCenterCounter < 60000) && (pitchCenterUs < 60000)){
+						if((pitchCenterCounter < 60000) && (pitchCenterUs < 40000)){
 							pitchCenterCounter++;
 							pitchCenterUs += pitchUs;
 						}
