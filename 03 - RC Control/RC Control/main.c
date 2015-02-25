@@ -174,10 +174,6 @@ void pmw(){
 }
 
 ISR(PCINT0_vect){
-	pcint();
-}
-
-void pcint(){
 
 uint16_t timerValue = TCNT1;
 	
