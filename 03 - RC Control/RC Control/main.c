@@ -98,6 +98,7 @@ int main(void){
 		unsigned int computedRoll;
 		
 		if((timeFromStartMs > 2300) && (timeFromStartMs < 7000)){
+			PORTD |= 1<<PORTD0;
 			servo[0] = 700;
 			servo[1] = 700;
 			servo[2] = 700;
@@ -105,6 +106,7 @@ int main(void){
 		}
 		
 		if((timeFromStartMs > 7000) && (initStep == 0)){
+			PORTD &= ~(1<<PORTD0);
 			initStep = 1;
 			PCICR |= 1<<PCIE0; //Enable interrupt of PCINT7:0
 			PCMSK0 |= 1<<PCINT2;// | 1<<PCINT3 | 1<<PCINT4;
