@@ -231,6 +231,7 @@ uint16_t timerValue = TCNT1;
 							rollCenterCalculated = 1;
 							if((rollCenterCalculated == 1) && (throttleInitCalculated == 1) && (pitchCenterCalculated == 1)){
 								initStep == -1;
+								PORTD |= 1<<PORTD0;
 							}
 						}
 						
@@ -275,6 +276,7 @@ uint16_t timerValue = TCNT1;
 							throttleInitCalculated = 1;
 							if((rollCenterCalculated == 1) && (throttleInitCalculated == 1) && (pitchCenterCalculated == 1)){
 								initStep == -1;
+								PORTD |= 1<<PORTD0;
 							}
 						}
 					}
@@ -318,6 +320,7 @@ uint16_t timerValue = TCNT1;
 							pitchCenterCalculated = 1;
 							if((rollCenterCalculated == 1) && (throttleInitCalculated == 1) && (pitchCenterCalculated == 1)){
 								initStep == -1;
+								PORTD |= 1<<PORTD0;
 							}
 						}
 					}
