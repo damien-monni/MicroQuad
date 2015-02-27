@@ -1,11 +1,14 @@
 //*****************************************
 //Damien Monni - www.damien-monni.fr
-//
+
 //Read the WHO_I_AM register of LSM303D(0Fh) that should be 01001001.
 //If the WHO_I_AM register is what we expected, turn on a LED on PORTD0.
 //*****************************************
 
 #include <avr/io.h>
+
+//Send a START or RESTART condition
+uint8_t twiStart();
 
 //Variable to read and store the WHO_I_AM register
 uint8_t id = 0;
@@ -13,9 +16,8 @@ uint8_t id = 0;
 int main(void){
 
 	//Send a START condition.
-	TWCR = (1<<TWINT) | (1<<TWSTA) | (1<<TWEN);
-	//Wait for the START condition to be send.
-	while(!(TWCR & (1<<TWINT)));	
+	twiStart();
+	
 	//Check if no error in status code (mask prescaler's 2 LSB bits). Should be 0x08.
 	if(TWSR & 0xF8 == 0x08){
 		//Write slave address 00111010b. LSB should be 0 for a write operation.
@@ -64,7 +66,6 @@ int main(void){
 			}
 			
 		}
-		
 	}
 	
 	//If the WHO_I_AM register is what we expected, turn on a LED on PORTD0.
@@ -75,4 +76,12 @@ int main(void){
 		PORTD &= ~(1<<PORTD0);
 	}
 
+}
+
+//Send a START or RESTART condition
+uint8_t twiStart(){
+	//Send a START condition.
+	TWCR = (1<<TWINT) | (1<<TWSTA) | (1<<TWEN);	
+	//Wait for the START condition to be send.
+	while(!(TWCR & (1<<TWINT)));
 }
