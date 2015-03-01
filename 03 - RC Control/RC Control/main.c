@@ -113,21 +113,21 @@ int main(void){
 		if(initStep == -1){
 		
 			if((timeFromStartMs > 7000) && (timeFromStartMs < 40000)){
-				/*ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
-				{	
-
-				}*/
+				//ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+				//{	
+					computedThrottle = (throttleUs - throttleInitUs) + 700;
+				//}
 				
-				computedThrottle = (((float)throttleUs - throttleInitUs) * (motorMaxUs - motorMinUs) / (rcMaxUs - throttleInitUs) + motorMinUs);
+				//computedThrottle = (((float)throttleUs - throttleInitUs) * (motorMaxUs - motorMinUs) / (rcMaxUs - throttleInitUs) + motorMinUs);
 				//computedPitch = ((((float)pitchUs - pitchCenterUs) * (300 - 0) / (rcMaxUs - pitchCenterUs) + 0));
 				//computedRoll = ((((float)rollUs - rollCenterUs) * (300.f - 0) / ((float)rcMaxUs - rollCenterUs) + 0));
-				computedRoll = (rollUs - rollCenterUs);
+				/*computedRoll = (rollUs - rollCenterUs);
 				computedRoll = computedRoll * 30;
 				computedRoll = (float)computedRoll / ((float)rcMaxUs - rollCenterUs);
-				computedRoll = computedRoll * 10;
+				computedRoll = computedRoll * 10;*/
 				
 				servo[0] = computedThrottle;
-				servo[1] = (computedThrottle + computedRoll);
+				servo[1] = computedThrottle;
 				servo[2] = computedThrottle;
 				servo[3] = computedThrottle;
 			}
