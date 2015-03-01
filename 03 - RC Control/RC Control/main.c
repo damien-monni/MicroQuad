@@ -171,7 +171,7 @@ void pmw(){
 		}
 		else{
 			PORTD &= ~(1<<channel); //Clear the last motor pin
-			OCR1A = startPmwTcnt1 + usToTicks(20000);
+			OCR1A = startPmwTcnt1 + 20000;
 			channel = -1; //Wait for the next period
 		}
 	}
@@ -205,10 +205,10 @@ uint16_t timerValue = TCNT1;
 			else{
 				uint16_t tempRoll;
 				if(timerValue > previousRoll){
-					tempRoll = ticksToUs(timerValue - previousRoll);
+					tempRoll = timerValue - previousRoll;
 				}
 				else{
-					tempRoll = ticksToUs((65536 - previousRoll) + timerValue);
+					tempRoll = (65536 - previousRoll) + timerValue;
 				}
 				
 				if(tempRoll > 500){
@@ -261,10 +261,10 @@ uint16_t timerValue = TCNT1;
 			else{
 				int16_t tempThrottle;
 				if(timerValue > previousThrottle){
-					tempThrottle = ticksToUs(timerValue - previousThrottle);
+					tempThrottle = timerValue - previousThrottle;
 				}
 				else{
-					tempThrottle = ticksToUs((65536 - previousThrottle) + timerValue);
+					tempThrottle = (65536 - previousThrottle) + timerValue;
 				}
 					
 				if((tempThrottle >= (rcMinUs - 400)) && (tempThrottle <= (rcMaxUs + 400))){
@@ -304,10 +304,10 @@ uint16_t timerValue = TCNT1;
 			else{
 				int16_t tempPitch;
 				if(timerValue > previousPitch){
-					tempPitch = ticksToUs(timerValue - previousPitch);
+					tempPitch = timerValue - previousPitch;
 				}
 				else{
-					tempPitch = ticksToUs((65536 - previousPitch) + timerValue);
+					tempPitch = (65536 - previousPitch) + timerValue;
 				}
 					
 				if((tempPitch >= (rcMinUs - 400)) && (tempPitch <= (rcMaxUs + 400))){
