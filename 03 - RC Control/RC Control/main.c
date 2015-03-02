@@ -42,9 +42,9 @@ volatile uint16_t servo[4] = {2300, 2300, 2300, 2300}; //Initial speed in micros
 volatile int8_t channel = 1; //Controlled motor number : 1, 2, 3 or 4
 volatile uint16_t startPmwTcnt1 = 0; //TCNT1 value when the PMW cycle starts
 
-volatile int16_t previousThrottle = 0; //Time from 70(1.1ms) to 125(2ms) on 8 bits timer
-volatile int16_t previousPitch = 0;
-volatile int16_t previousRoll = 0;
+volatile uint16_t previousThrottle = 0; //Time from 70(1.1ms) to 125(2ms) on 8 bits timer
+volatile uint16_t previousPitch = 0;
+volatile uint16_t previousRoll = 0;
 volatile int8_t rcIsLow = -1;
 
 //For interrupts PCINT
@@ -72,7 +72,7 @@ volatile uint8_t rollCenterCalculated = 0;
 //A value of -1 means initialisation completed.
 volatile int8_t initStep = 0;
 
-uint8_t pcintNb = 0;
+volatile uint8_t pcintNb = 0;
 
 //ISR functions
 void pmw();
@@ -92,6 +92,13 @@ int main(void){
 	sei(); //Enable global interrupts
 	
 	while(1){
+	
+		if(rollUs > 1500){
+			PORTD |= (1<<PORTD0);
+		}
+		else{
+			PORTD &= ~(1<<PORTD0);
+		}
 	
 		int16_t computedThrottle;
 		int16_t computedPitch;
@@ -113,23 +120,14 @@ int main(void){
 		if(initStep == -1){
 		
 			if((timeFromStartMs > 7000) && (timeFromStartMs < 40000)){
-				//ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
-				//{	
-					computedThrottle = (throttleUs - throttleInitUs) + 700;
-				//}
+					
+				computedThrottle = (throttleUs - throttleInitUs) + 700;
+				computedRoll = (rollUs - 1400);
 				
-				//computedThrottle = (((float)throttleUs - throttleInitUs) * (motorMaxUs - motorMinUs) / (rcMaxUs - throttleInitUs) + motorMinUs);
-				//computedPitch = ((((float)pitchUs - pitchCenterUs) * (300 - 0) / (rcMaxUs - pitchCenterUs) + 0));
-				//computedRoll = ((((float)rollUs - rollCenterUs) * (300.f - 0) / ((float)rcMaxUs - rollCenterUs) + 0));
-				/*computedRoll = (rollUs - rollCenterUs);
-				computedRoll = computedRoll * 30;
-				computedRoll = (float)computedRoll / ((float)rcMaxUs - rollCenterUs);
-				computedRoll = computedRoll * 10;*/
-				
-				servo[0] = computedThrottle;
-				servo[1] = computedThrottle;
-				servo[2] = computedThrottle;
-				servo[3] = computedThrottle;
+				servo[0] = computedRoll;
+				servo[1] = computedRoll + computedRoll;
+				servo[2] = computedRoll;
+				servo[3] = computedRoll;
 			}
 			
 			if(timeFromStartMs > 40000){ 
@@ -205,17 +203,10 @@ uint16_t timerValue = TCNT1;
 			else{
 				uint16_t tempRoll;
 				if(timerValue > previousRoll){
-					tempRoll = timerValue - previousRoll;
+					tempRoll = (timerValue - previousRoll);
 				}
 				else{
 					tempRoll = (65536 - previousRoll) + timerValue;
-				}
-				
-				if(tempRoll > 500){
-					PORTD |= 1<<PORTD0;
-				}
-				else{
-					PORTD &= ~(1<<PORTD);
 				}
 				
 				//Valid signal detected
@@ -242,9 +233,6 @@ uint16_t timerValue = TCNT1;
 						}
 						
 					}
-				}
-				else{
-					countDebug++;
 				}
 			}
 		}
@@ -286,9 +274,6 @@ uint16_t timerValue = TCNT1;
 						}
 					}
 				}
-				else{
-					countDebug++;
-				}
 			}
 		}
 	}
@@ -328,9 +313,6 @@ uint16_t timerValue = TCNT1;
 							}
 						}
 					}
-				}
-				else{
-					countDebug++;
 				}
 			
 			}
