@@ -122,12 +122,13 @@ int main(void){
 			if((timeFromStartMs > 7000) && (timeFromStartMs < 40000)){
 					
 				computedThrottle = (throttleUs - throttleInitUs) + 700;
-				computedRoll = (rollUs - 1400);
+				computedRoll = (rollUs - 1300);
+				computedPitch = (pitchUs - 1300);
 				
 				servo[0] = computedThrottle;
 				servo[1] = computedThrottle + computedRoll;
 				servo[2] = computedThrottle;
-				servo[3] = computedThrottle;
+				servo[3] = computedThrottle + computedPitch;
 			}
 			
 			if(timeFromStartMs > 40000){ 
@@ -257,9 +258,9 @@ uint16_t timerValue = TCNT1;
 					
 				if((tempThrottle >= (rcMinUs - 400)) && (tempThrottle <= (rcMaxUs + 400))){
 					throttleUs = tempThrottle;
-					pcintNb = 0;
+					pcintNb = 2;
 					PCMSK0 &= ~(1<<PCINT3); //Clear interrupt on PCINT3
-					PCMSK0 |= 1<<PCINT2; //Enable interrupt on PCINT4
+					PCMSK0 |= 1<<PCINT4; //Enable interrupt on PCINT4
 					if(initStep == 1){
 						if((throttleInitCounter < 60000) && (throttleInitUs < 40000)){
 							throttleInitCounter++;
