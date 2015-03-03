@@ -218,7 +218,7 @@ ISR(PCINT0_vect){
 							break;
 					case 4:	pitchUs = temp;
 							break;
-				}
+				}				
 				
 				PCMSK0 &= ~(1<<(pcintNb + 1)); //Clear interrupt on PCINT1
 				PCMSK0 |= 1<<(pcintNb + 2); //Enable interrupt on PCINT2
