@@ -45,6 +45,7 @@ volatile uint16_t startPmwTcnt1 = 0; //TCNT1 value when the PMW cycle starts
 volatile uint16_t previousThrottle = 0; //Time from 70(1.1ms) to 125(2ms) on 8 bits timer
 volatile uint16_t previousPitch = 0;
 volatile uint16_t previousRoll = 0;
+volatile uint16_t previousYaw = 0;
 volatile int8_t rcIsLow = -1;
 
 //For interrupts PCINT
@@ -67,6 +68,10 @@ volatile uint8_t pitchCenterCalculated = 0;
 volatile uint16_t rollCenterUs = 0;
 volatile uint16_t rollCenterCounter = 0;
 volatile uint8_t rollCenterCalculated = 0;
+
+volatile uint16_t yawCenterUs = 0;
+volatile uint16_t yawCenterCounter = 0;
+volatile uint8_t yawCenterCalculated = 0;
 
 //Signed boolean to know where we are in the initialisation process.
 //A value of -1 means initialisation completed.
@@ -93,16 +98,10 @@ int main(void){
 	
 	while(1){
 	
-		if(rollUs > 1500){
-			PORTD |= (1<<PORTD0);
-		}
-		else{
-			PORTD &= ~(1<<PORTD0);
-		}
-	
 		int16_t computedThrottle;
 		int16_t computedPitch;
 		int16_t computedRoll;
+		int16_t computedYaw;
 		
 		if((timeFromStartMs > 2300) && (timeFromStartMs < 7000)){
 			servo[0] = 700;
@@ -114,7 +113,7 @@ int main(void){
 		if((timeFromStartMs > 7000) && (initStep == 0)){
 			initStep = 1;
 			PCICR |= 1<<PCIE0; //Enable interrupt of PCINT7:0
-			PCMSK0 |= 1<<PCINT2;// | 1<<PCINT3 | 1<<PCINT4;
+			PCMSK0 |= 1<<PCINT1;
 		}
 		
 		if(initStep == -1){
@@ -122,13 +121,14 @@ int main(void){
 			if((timeFromStartMs > 7000) && (timeFromStartMs < 40000)){
 					
 				computedThrottle = (throttleUs - throttleInitUs) + 700;
-				computedRoll = (rollUs - 1300);
-				computedPitch = (pitchUs - 1300);
+				computedRoll = (rollUs - 1600);
+				computedPitch = (pitchUs - 1600);
+				computedYaw = (yawUs - 1600);
 				
-				servo[0] = computedThrottle;
-				servo[1] = computedThrottle + computedRoll;
-				servo[2] = computedThrottle;
-				servo[3] = computedThrottle + computedPitch;
+				servo[0] = computedThrottle + computedYaw + computedRoll;
+				servo[1] = computedThrottle + computedPitch;
+				servo[2] = computedThrottle + computedYaw;
+				servo[3] = computedThrottle;
 			}
 			
 			if(timeFromStartMs > 40000){ 
@@ -192,7 +192,55 @@ uint16_t timerValue = TCNT1;
 	changedbits = PINB ^ portbhistory;
 	portbhistory = PINB;
 	
+	
 	if(pcintNb == 0){
+		PORTD |= (1<<PORTD0);
+		//PCINT1 changed
+		if( (changedbits & (1 << PB1)) )
+		{
+			//Min just goes high, is now high
+			if(portbhistory & 1<<PORTB1){ //Be careful of assigning the good PORTBx
+				previousYaw = timerValue;
+			}
+			//Pin just goes low, is now low
+			else{
+				int16_t tempYaw;
+				if(timerValue > previousYaw){
+					tempYaw = (timerValue - previousYaw);
+				}
+				else{
+					tempYaw = (65536 - previousYaw) + timerValue;
+				}
+				
+				//Valid signal detected
+				if((tempYaw >= (rcMinUs - 400)) && (tempYaw <= (rcMaxUs + 400))){
+					
+					yawUs = tempYaw;
+					
+					pcintNb = 1;
+					PCMSK0 &= ~(1<<PCINT1); //Clear interrupt on PCINT1
+					PCMSK0 |= 1<<PCINT2; //Enable interrupt on PCINT2
+					
+					//Initialisation process
+					if(initStep == 1){
+						if((yawCenterCounter < 60000) && (yawCenterUs < 40000)){
+							yawCenterCounter++;
+							yawCenterUs += yawUs;
+						}
+						else if(yawCenterCalculated == 0){
+							yawCenterUs /= yawCenterCounter;
+							yawCenterCalculated = 1;
+							if((yawCenterCalculated == 1) && (rollCenterCalculated == 1) && (throttleInitCalculated == 1) && (pitchCenterCalculated == 1)){
+								initStep = -1;
+							}
+						}
+						
+					}
+				}
+			}
+		}
+	}
+	else if(pcintNb == 1){
 	//PCINT2 changed
 		if( (changedbits & (1 << PB2)) )
 		{
@@ -202,7 +250,7 @@ uint16_t timerValue = TCNT1;
 			}
 			//Pin just goes low, is now low
 			else{
-				uint16_t tempRoll;
+				int16_t tempRoll;
 				if(timerValue > previousRoll){
 					tempRoll = (timerValue - previousRoll);
 				}
@@ -215,7 +263,7 @@ uint16_t timerValue = TCNT1;
 					
 					rollUs = tempRoll;
 					
-					pcintNb = 1;
+					pcintNb = 2;
 					PCMSK0 &= ~(1<<PCINT2); //Clear interrupt on PCINT2
 					PCMSK0 |= 1<<PCINT3; //Enable interrupt on PCINT3
 					
@@ -226,9 +274,9 @@ uint16_t timerValue = TCNT1;
 							rollCenterUs += rollUs;
 						}
 						else if(rollCenterCalculated == 0){
-							rollCenterUs = (float)rollCenterUs / (float)rollCenterCounter;
+							rollCenterUs /= rollCenterCounter;
 							rollCenterCalculated = 1;
-							if((rollCenterCalculated == 1) && (throttleInitCalculated == 1)/* && (pitchCenterCalculated == 1)*/){
+							if((yawCenterCalculated == 1) && (rollCenterCalculated == 1) && (throttleInitCalculated == 1) && (pitchCenterCalculated == 1)){
 								initStep = -1;
 							}
 						}
@@ -238,7 +286,7 @@ uint16_t timerValue = TCNT1;
 			}
 		}
 	}
-	else if(pcintNb == 1){
+	else if(pcintNb == 2){
 	//PCINT3 changed
 		if( (changedbits & (1 << PB3)) )
 		{
@@ -258,7 +306,7 @@ uint16_t timerValue = TCNT1;
 					
 				if((tempThrottle >= (rcMinUs - 400)) && (tempThrottle <= (rcMaxUs + 400))){
 					throttleUs = tempThrottle;
-					pcintNb = 2;
+					pcintNb = 3;
 					PCMSK0 &= ~(1<<PCINT3); //Clear interrupt on PCINT3
 					PCMSK0 |= 1<<PCINT4; //Enable interrupt on PCINT4
 					if(initStep == 1){
@@ -269,7 +317,7 @@ uint16_t timerValue = TCNT1;
 						else if(throttleInitCalculated == 0){
 							throttleInitUs = (float)throttleInitUs / (float)throttleInitCounter;
 							throttleInitCalculated = 1;
-							if((rollCenterCalculated == 1) && (throttleInitCalculated == 1)/* && (pitchCenterCalculated == 1)*/){
+							if((yawCenterCalculated == 1) && (rollCenterCalculated == 1) && (throttleInitCalculated == 1) && (pitchCenterCalculated == 1)){
 								initStep = -1;
 							}
 						}
@@ -278,7 +326,7 @@ uint16_t timerValue = TCNT1;
 			}
 		}
 	}
-	else if(pcintNb == 2){
+	else if(pcintNb == 3){
 		//PCINT4 changed
 		if( (changedbits & (1 << PB4)) )
 		{
@@ -299,8 +347,8 @@ uint16_t timerValue = TCNT1;
 				if((tempPitch >= (rcMinUs - 400)) && (tempPitch <= (rcMaxUs + 400))){
 					pitchUs = tempPitch;
 					pcintNb = 0;
-					PCMSK0 &= ~(1<<PCINT4); //Clear interrupt on PCINT2
-					PCMSK0 |= 1<<PCINT2; //Enable interrupt on PCINT3
+					PCMSK0 &= ~(1<<PCINT4); //Clear interrupt on PCINT4
+					PCMSK0 |= 1<<PCINT1; //Enable interrupt on PCINT1
 					if(initStep == 1){
 						if((pitchCenterCounter < 60000) && (pitchCenterUs < 40000)){
 							pitchCenterCounter++;
@@ -309,7 +357,7 @@ uint16_t timerValue = TCNT1;
 						else if(pitchCenterCalculated == 0){
 							pitchCenterUs = (float)pitchCenterUs / (float)pitchCenterCounter;
 							pitchCenterCalculated = 1;
-							if((rollCenterCalculated == 1) && (throttleInitCalculated == 1) && (pitchCenterCalculated == 1)){
+							if((yawCenterCalculated == 1) && (rollCenterCalculated == 1) && (throttleInitCalculated == 1) && (pitchCenterCalculated == 1)){
 								initStep = -1;
 							}
 						}
