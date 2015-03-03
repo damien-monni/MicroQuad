@@ -124,10 +124,10 @@ int main(void){
 				computedThrottle = (throttleUs - throttleInitUs) + 700;
 				computedRoll = (rollUs - 1400);
 				
-				servo[0] = computedRoll;
-				servo[1] = computedRoll + computedRoll;
-				servo[2] = computedRoll;
-				servo[3] = computedRoll;
+				servo[0] = computedThrottle;
+				servo[1] = computedThrottle + computedRoll;
+				servo[2] = computedThrottle;
+				servo[3] = computedThrottle;
 			}
 			
 			if(timeFromStartMs > 40000){ 
