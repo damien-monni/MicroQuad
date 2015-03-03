@@ -46,6 +46,7 @@ volatile uint16_t previousThrottle = 0; //Time from 70(1.1ms) to 125(2ms) on 8 b
 volatile uint16_t previousPitch = 0;
 volatile uint16_t previousRoll = 0;
 volatile uint16_t previousYaw = 0;
+volatile uint16_t previousDumb = 0;
 volatile int8_t rcIsLow = -1;
 
 //For interrupts PCINT
@@ -120,7 +121,7 @@ int main(void){
 		
 			if((timeFromStartMs > 7000) && (timeFromStartMs < 40000)){
 					
-				computedThrottle = (throttleUs - throttleInitUs) + 700;
+				computedThrottle = (throttleUs - 1100) + 700;
 				computedRoll = (rollUs - 1600);
 				computedPitch = (pitchUs - 1600);
 				computedYaw = (yawUs - 1600);
@@ -178,7 +179,7 @@ void pmw(){
 
 ISR(PCINT0_vect){
 
-uint16_t timerValue = TCNT1;
+	uint16_t timerValue = TCNT1;
 	
 	uint8_t changedbits;
 
@@ -192,8 +193,55 @@ uint16_t timerValue = TCNT1;
 	changedbits = PINB ^ portbhistory;
 	portbhistory = PINB;
 	
+	if( (changedbits & (1<<(pcintNb+1))) ){
+		//Min just goes high, is now high
+		if(portbhistory & 1<<(pcintNb+1)){ //Be careful of assigning the good PORTBx
+			previousDumb = timerValue;
+		}
+		else{
+			int16_t temp;
+			if(timerValue > previousDumb){
+				temp = (timerValue - previousDumb);
+			}
+			else{
+				temp = (65536 - previousDumb) + timerValue;
+			}
+			
+			//Valid signal detected
+			if((temp >= (rcMinUs - 400)) && (temp <= (rcMaxUs + 400))){
+				switch(pcintNb + 1){
+					case 1:	yawUs = temp;
+							break;
+					case 2:	rollUs = temp;
+							break;
+					case 3:	throttleUs = temp;
+							break;
+					case 4:	pitchUs = temp;
+							break;
+				}
+				
+				PCMSK0 &= ~(1<<(pcintNb + 1)); //Clear interrupt on PCINT1
+				PCMSK0 |= 1<<(pcintNb + 2); //Enable interrupt on PCINT2
+				
+				if(pcintNb == 3){
+					pcintNb = 0;
+					PORTD|=1<<PORTD0;
+				}
+				else{
+					pcintNb++;
+				}
+				
+				if(initStep == 1){
+					initStep = -1;
+				}
+			}
+		}
+	}
 	
-	if(pcintNb == 0){
+	
+	
+	
+	/*if(pcintNb == 0){
 		PORTD |= (1<<PORTD0);
 		//PCINT1 changed
 		if( (changedbits & (1 << PB1)) )
@@ -366,7 +414,7 @@ uint16_t timerValue = TCNT1;
 			
 			}
 		}
-	}
+	}*/
 	
 	
 }
