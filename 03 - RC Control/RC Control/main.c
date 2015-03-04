@@ -223,6 +223,7 @@ ISR(PCINT0_vect){
 							break;
 					case 4:	pitchUs = temp;
 							break;
+					default: break;
 				}
 				
 				//Initialisation process
