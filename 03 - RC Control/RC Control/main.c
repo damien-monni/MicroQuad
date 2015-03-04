@@ -42,11 +42,7 @@ volatile uint16_t servo[4] = {2300, 2300, 2300, 2300}; //Initial speed in micros
 volatile int8_t channel = 1; //Controlled motor number : 1, 2, 3 or 4
 volatile uint16_t startPmwTcnt1 = 0; //TCNT1 value when the PMW cycle starts
 
-volatile uint16_t previousThrottle = 0; //Time from 70(1.1ms) to 125(2ms) on 8 bits timer
-volatile uint16_t previousPitch = 0;
-volatile uint16_t previousRoll = 0;
-volatile uint16_t previousYaw = 0;
-volatile uint16_t previousDumb = 0;
+volatile uint16_t previousRcValue = 0;
 
 //For interrupts PCINT
 volatile uint8_t portbhistory = 0;
@@ -204,15 +200,15 @@ ISR(PCINT0_vect){
 	if( (changedBits & (1<<pcintNb)) ){
 		//Min just goes high, is now high
 		if(portbhistory & 1<<pcintNb){ //Be careful of assigning the good PORTBx
-			previousDumb = timerValue;
+			previousRcValue = timerValue;
 		}
 		else{
 			int16_t temp;
-			if(timerValue > previousDumb){
-				temp = (timerValue - previousDumb);
+			if(timerValue > previousRcValue){
+				temp = (timerValue - previousRcValue);
 			}
 			else{
-				temp = (65536 - previousDumb) + timerValue;
+				temp = (65536 - previousRcValue) + timerValue;
 			}
 			
 			//Valid signal detected
