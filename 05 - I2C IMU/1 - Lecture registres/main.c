@@ -1,24 +1,29 @@
 //*****************************************
 //Damien Monni - www.damien-monni.fr
 //
-//Read the WHO_I_AM register of LSM303D(0Fh) that should be 01001001.
-//If the WHO_I_AM register is what we expected, turn on a LED on PORTD0.
+//Read multiple register from LSM303D.
+//Read accelerator values (2 bytes per value) on X, Y and Z.
+//Read registers are 0x28 - 0x29 / 0x2A - 0x2B / 0x2C - 0x2D 
 //*****************************************
 
 #include <avr/io.h>
 #include <util/delay.h>
 
-//Variable to read and store the WHO_I_AM register
-uint8_t id = 0;
+uint8_t xL = 0;
+uint8_t xH = 0;
+uint16_t x;
 
 int main(void){
 
+	
 	DDRD |= 1<<DDD0; //PORTD0 as output	
 	PORTD |= 1<<PORTD0; //Turn on LED on PORTD0	
 	_delay_ms(1500); //Wait 1.5s	
 	PORTD &= ~(1<<PORTD0); //Turn off LED on PORTD0	
 	_delay_ms(1500); //Wait 1.5s
 
+	//********LSM303D need to be setup first (maybe enable the accelerometer...******************//
+	
 	//********TWI clock settings******************//
 
 	//Send a START condition.
@@ -35,8 +40,8 @@ int main(void){
 		while(!(TWCR & (1<<TWINT)));
 		//Check if SLA+W has been transmitted and ACK received.
 		if(TWSR & 0xF8 == 0x18){
-			//Write data. It should be the WHO_I_AM register's address (0Fh)
-			TWDR = 0x0F;
+			//Write data. It should be the OUT_X_L_A register's address (28h). 1 in MSB for repeated read.
+			TWDR = (0x28 | (1 << 7)); //Or can be 0xA8
 			//Clear (by writing it to one) TWINT bit to continue
 			TWCR = 1<<TWINT | 1<<TWEN;
 			//Wait for the slave's ACK or NoACK to be received.
@@ -57,16 +62,24 @@ int main(void){
 					while(!(TWCR & (1<<TWINT)));
 					//Check if SLA+R has been transmitted and ACK received.
 					if(TWSR & 0xF8 == 0x40){
-						//Clear (by writing it to one) TWINT bit to continue
-						TWCR = 1<<TWINT | 1<<TWEN;
+						//Clear (by writing it to one) TWINT bit to continue and set TWEA for a Master ACK
+						TWCR = 1<<TWINT | 1<<TWEA | 1<<TWEN;
 						//Wait for the slave's ACK or NoACK to be received.
 						while(!(TWCR & (1<<TWINT)));
-						//Check if a data byte has been received and NACK returned.
-						if(TWSR & 0xF8 == 0x58){
-							//Read and store data received. Should be 01001001b.
-							id = TWDR;
-							//Send a STOP condition.
-							TWCR = (1<<TWINT) | (1<<TWSTO) | (1<<TWEN);
+						//Check if a data byte has been received and ACK returned.
+						if(TWSR & 0xF8 == 0x50){
+							//Read and store data received.
+							xL = TWDR;
+							//Clear (by writing it to one) TWINT bit to continue
+							TWCR = 1<<TWINT | 1<<TWEN;
+							//Wait for the slave's ACK or NoACK to be received.
+							while(!(TWCR & (1<<TWINT)));
+							if(TWSR & 0xF8 == 0x58){
+								//Read and store data received. Should be 01001001b.
+								xH = TWDR;
+								//Send a STOP condition.
+								TWCR = (1<<TWINT) | (1<<TWSTO) | (1<<TWEN);
+							}
 						}
 					}
 				}
@@ -76,8 +89,10 @@ int main(void){
 		
 	}
 	
-	//If the WHO_I_AM register is what we expected, turn on a LED on PORTD0.
-	if(id == 01001001b){
+	x = ((xH << 8) | (xL & 0xff)); //0xff should be mandatory because of the 2s complement
+	
+	//Turn on LED on PORTD0 if...
+	if(x != 0){
 		PORTD |= 1<<PORTD0;
 	}
 	else{
