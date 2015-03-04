@@ -47,7 +47,6 @@ volatile uint16_t previousPitch = 0;
 volatile uint16_t previousRoll = 0;
 volatile uint16_t previousYaw = 0;
 volatile uint16_t previousDumb = 0;
-volatile int8_t rcIsLow = -1;
 
 //For interrupts PCINT
 volatile uint8_t portbhistory = 0;
@@ -282,7 +281,6 @@ ISR(PCINT0_vect){
 								initStep = -1;
 							}
 						}
-						
 					}
 				}
 			}
