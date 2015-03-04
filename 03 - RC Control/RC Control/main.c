@@ -57,6 +57,15 @@ volatile int16_t rollUs = 0; //Left or right
 volatile int16_t pitchUs = 0; //Up and down
 volatile int16_t yawUs = 0; //Left or right in level fly
 
+//Initial values of RC commands
+typedef volatile struct {
+	uint16_t initUs;
+	uint16_t initCounter; //Could be an uint8_t?
+	uint8_t initCalculated;
+} CenterRc;
+
+CenterRc centers[4] = {0};
+
 volatile uint16_t throttleInitUs = 0;
 volatile uint16_t throttleInitCounter = 0;
 volatile uint8_t throttleInitCalculated = 0;
@@ -219,6 +228,21 @@ ISR(PCINT0_vect){
 							break;
 				}
 				
+				//Initialisation process
+				if(initStep == 1){
+					if((centers[pcintNb - 1].initCounter < 60000) && (centers[pcintNb - 1].initUs < 40000)){
+						centers[pcintNb - 1].initCounter++;
+						centers[pcintNb - 1].initUs += temp;
+					}
+					else if(centers[pcintNb - 1].initCalculated == 0){
+						centers[pcintNb - 1].initUs /= (float)centers[pcintNb - 1].initCounter;
+						centers[pcintNb - 1].initCalculated = 1;
+						if((centers[0].initCalculated == 1) && (centers[1].initCalculated == 1) && (centers[2].initCalculated == 1) && (centers[3].initCalculated == 1)){
+							initStep = -1;
+						}
+					}
+				}
+				
 				if(pcintNb == 4){
 					pcintNb = 1;
 				}
@@ -229,10 +253,6 @@ ISR(PCINT0_vect){
 				PCMSK0 &= ~(1<<(pcintNb - 1)); //Clear interrupt on PCINT1
 				PCMSK0 |= 1<<pcintNb; //Enable interrupt on PCINT2
 				
-				//Useless now. For futur purposes: calculate initial value of RC commands.
-				if(initStep == 1){
-					initStep = -1;
-				}
 			}
 		}
 	}
