@@ -37,15 +37,15 @@ int main(void){
 	//Wait for the START condition to be send.
 	while(!(TWCR & (1<<TWINT)));	
 	//Check if no error in status code (mask prescaler's 2 LSB bits). Should be 0x08.
-	if(TWSR & 0xF8 == 0x08){
+	if((TWSR & 0xF8) == 0x08){
 		//Write slave address 00111010b. LSB should be 0 for a write operation.
-		TWDR = 00111010b;
+		TWDR = 0b00111010;
 		//Clear (by writing it to one) TWINT bit to continue
 		TWCR = 1<<TWINT | 1<<TWEN;
 		//Wait for the slave's ACK or NoACK to be received.
 		while(!(TWCR & (1<<TWINT)));
 		//Check if SLA+W has been transmitted and ACK received.
-		if(TWSR & 0xF8 == 0x18){
+		if((TWSR & 0xF8) == 0x18){
 			//Write data. It should be the CTRL1 register's address (20h)
 			TWDR = 0x20;
 			//Clear (by writing it to one) TWINT bit to continue
@@ -53,17 +53,17 @@ int main(void){
 			//Wait for the slave's ACK or NoACK to be received.
 			while(!(TWCR & (1<<TWINT)));
 			//Check if a data byte has been transmitted and ACK received.
-			if(TWSR & 0xF8 == 0x28){
+			if((TWSR & 0xF8) == 0x28){
 				//Write data.
-				TWDR = 10000111b;
+				TWDR = 0b10000111;
 				//Clear (by writing it to one) TWINT bit to continue
 				TWCR = 1<<TWINT | 1<<TWEN;
 				//Wait for the slave's ACK or NoACK to be received.
 				while(!(TWCR & (1<<TWINT)));
 				//Check if a data byte has been transmitted and ACK received.
-				if(TWSR & 0xF8 == 0x28){
+				if((TWSR & 0xF8) == 0x28){
 					//Send a STOP condition.
-					TWCR = (1<<TWINT) | (1<<TWSTO) | (1<<TWEN);
+					//TWCR = (1<<TWINT) | (1<<TWSTO) | (1<<TWEN);
 				}
 			}
 		}
@@ -77,17 +77,17 @@ int main(void){
 	//Send a START condition.
 	TWCR = (1<<TWINT) | (1<<TWSTA) | (1<<TWEN);
 	//Wait for the START condition to be send.
-	while(!(TWCR & (1<<TWINT)));	
+	while(!(TWCR & (1<<TWINT)));
 	//Check if no error in status code (mask prescaler's 2 LSB bits). Should be 0x08.
-	if(TWSR & 0xF8 == 0x08){
+	if((TWSR & 0xF8) == 0x10){
 		//Write slave address 00111010b. LSB should be 0 for a write operation.
-		TWDR = 00111010b;
+		TWDR = 0b00111010;
 		//Clear (by writing it to one) TWINT bit to continue
 		TWCR = 1<<TWINT | 1<<TWEN;
 		//Wait for the slave's ACK or NoACK to be received.
 		while(!(TWCR & (1<<TWINT)));
 		//Check if SLA+W has been transmitted and ACK received.
-		if(TWSR & 0xF8 == 0x18){
+		if((TWSR & 0xF8) == 0x18){
 			//Write data. It should be the OUT_X_L_A register's address (28h). 1 in MSB for repeated read.
 			TWDR = (0x28 | (1 << 7)); //Or can be 0xA8
 			//Clear (by writing it to one) TWINT bit to continue
@@ -95,34 +95,34 @@ int main(void){
 			//Wait for the slave's ACK or NoACK to be received.
 			while(!(TWCR & (1<<TWINT)));
 			//Check if a data byte has been transmitted and ACK received.
-			if(TWSR & 0xF8 == 0x28){
+			if((TWSR & 0xF8) == 0x28){
 				//Send a REPEATED START condition.
 				TWCR = (1<<TWINT) | (1<<TWSTA) | (1<<TWEN);
 				//Wait for the REPEATED START condition to be send.
 				while(!(TWCR & (1<<TWINT)));
 				//Check if no error.
-				if(TWSR & 0xF8 == 0x10){
+				if((TWSR & 0xF8) == 0x10){
 					//Write slave address 00111011b. LSB should be 1 for a read operation.
-					TWDR = 00111011b;
+					TWDR = 0b00111011;
 					//Clear (by writing it to one) TWINT bit to continue
 					TWCR = 1<<TWINT | 1<<TWEN;
 					//Wait for the slave's ACK or NoACK to be received.
 					while(!(TWCR & (1<<TWINT)));
 					//Check if SLA+R has been transmitted and ACK received.
-					if(TWSR & 0xF8 == 0x40){
+					if((TWSR & 0xF8) == 0x40){
 						//Clear (by writing it to one) TWINT bit to continue and set TWEA for a Master ACK
 						TWCR = 1<<TWINT | 1<<TWEA | 1<<TWEN;
 						//Wait for the slave's ACK or NoACK to be received.
 						while(!(TWCR & (1<<TWINT)));
 						//Check if a data byte has been received and ACK returned.
-						if(TWSR & 0xF8 == 0x50){
+						if((TWSR & 0xF8) == 0x50){
 							//Read and store data received.
 							xL = TWDR;
 							//Clear (by writing it to one) TWINT bit to continue
 							TWCR = 1<<TWINT | 1<<TWEN;
 							//Wait for the slave's ACK or NoACK to be received.
 							while(!(TWCR & (1<<TWINT)));
-							if(TWSR & 0xF8 == 0x58){
+							if((TWSR & 0xF8) == 0x58){
 								//Read and store data received. Should be 01001001b.
 								xH = TWDR;
 								//Send a STOP condition.
