@@ -237,8 +237,11 @@ ISR(PCINT0_vect){
 					else if(centers[pcintNb - 1].initCalculated == 0){
 						centers[pcintNb - 1].initUs /= (float)centers[pcintNb - 1].initCounter;
 						centers[pcintNb - 1].initCalculated = 1;
-						if((centers[0].initCalculated == 1) && (centers[1].initCalculated == 1) && (centers[2].initCalculated == 1) && (centers[3].initCalculated == 1)){
-							initStep = -1;
+						if((centers[0].initCalculated == 1)
+							&& (centers[1].initCalculated == 1)
+							&& (centers[2].initCalculated == 1)
+							&& (centers[3].initCalculated == 1)){
+								initStep = -1;
 						}
 					}
 				}
