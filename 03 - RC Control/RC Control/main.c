@@ -45,7 +45,7 @@ volatile uint16_t startPmwTcnt1 = 0; //TCNT1 value when the PMW cycle starts
 volatile uint16_t previousRcValue = 0;
 
 //For interrupts PCINT
-volatile uint8_t portbhistory = 0;
+volatile uint8_t portHistory = 0;
 
 //RC commands
 volatile int16_t throttleUs = 0; //Altitude control
@@ -194,12 +194,12 @@ ISR(PCINT0_vect){
 	//XOR 0000001
 	//----------
 	//    0001000
-	changedBits = PINB ^ portbhistory;
-	portbhistory = PINB;
+	changedBits = PINB ^ portHistory;
+	portHistory = PINB;
 	
 	if( (changedBits & (1<<pcintNb)) ){
 		//Min just goes high, is now high
-		if(portbhistory & 1<<pcintNb){ //Be careful of assigning the good PORTBx
+		if(portHistory & 1<<pcintNb){ //Be careful of assigning the good PORTBx
 			previousRcValue = timerValue;
 		}
 		else{
@@ -265,7 +265,7 @@ ISR(PCINT0_vect){
 		if( (changedBits & (1 << PB1)) )
 		{
 			//Min just goes high, is now high
-			if(portbhistory & 1<<PORTB1){ //Be careful of assigning the good PORTBx
+			if(portHistory & 1<<PORTB1){ //Be careful of assigning the good PORTBx
 				previousYaw = timerValue;
 			}
 			//Pin just goes low, is now low
@@ -310,7 +310,7 @@ ISR(PCINT0_vect){
 		if( (changedBits & (1 << PB2)) )
 		{
 			//Min just goes high, is now high
-			if(portbhistory & 1<<PORTB2){ //Be careful of assigning the good PORTBx
+			if(portHistory & 1<<PORTB2){ //Be careful of assigning the good PORTBx
 				previousRoll = timerValue;
 			}
 			//Pin just goes low, is now low
@@ -356,7 +356,7 @@ ISR(PCINT0_vect){
 		if( (changedBits & (1 << PB3)) )
 		{
 			//Min just goes high, is now high
-			if(portbhistory & 1<<PORTB3){ //Be careful of assigning the good PORTBx
+			if(portHistory & 1<<PORTB3){ //Be careful of assigning the good PORTBx
 				previousThrottle = timerValue;
 			}
 			//Pin just goes low, is now low
@@ -396,7 +396,7 @@ ISR(PCINT0_vect){
 		if( (changedBits & (1 << PB4)) )
 		{
 			//Min just goes high, is now high
-			if(portbhistory & 1<<PORTB4){ //Be careful of assigning the good PORTBx
+			if(portHistory & 1<<PORTB4){ //Be careful of assigning the good PORTBx
 				previousPitch = timerValue;
 			}
 			//Pin just goes low, is now low
