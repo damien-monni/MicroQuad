@@ -34,7 +34,7 @@ const uint16_t rcMaxUs = 2000;
 const uint16_t motorMinUs = 700;
 const uint16_t motorMaxUs = 1400;
 
-//Donne le temps d'execution du programme en ms (compte au max environ 1.5 mois soit environ 46 jours)
+//Donne le temps d'execution du programme en ms (compte au max environ 1.5 mois soit environ 49 jours)
 //MIS A JOUR SEULEMENT TOUTES LES 20MS VIA LA GENERATION PMW.
 volatile uint32_t timeFromStartMs = 0;
 
