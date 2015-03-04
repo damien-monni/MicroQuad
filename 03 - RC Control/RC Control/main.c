@@ -68,10 +68,6 @@ volatile int8_t initStep = 0;
 
 volatile uint8_t pcintNb = 1;
 
-//ISR functions
-void pmw();
-void pcint();
-
 volatile uint16_t countDebug = 0;
 
 int main(void){
@@ -137,11 +133,8 @@ int main(void){
 //PMW Building ISR
 ISR(TIMER1_COMPA_vect)
 {
-	pmw();
-}
-
-void pmw(){
 	uint16_t timerValue = TCNT1;
+	
 	if(channel < 0){ //Every motors was pulsed, waiting for the next period
 		//TCNT1 = 0;
 		channel = 1;
