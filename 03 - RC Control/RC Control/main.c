@@ -78,7 +78,7 @@ volatile uint8_t yawCenterCalculated = 0;
 //A value of -1 means initialisation completed.
 volatile int8_t initStep = 0;
 
-volatile uint8_t pcintNb = 0;
+volatile uint8_t pcintNb = 1;
 
 //ISR functions
 void pmw();
@@ -181,7 +181,7 @@ ISR(PCINT0_vect){
 
 	uint16_t timerValue = TCNT1;
 	
-	uint8_t changedbits;
+	uint8_t changedBits;
 
 	//^ = XOR (exclusive OR, one bit or the other, but not both at the same time). Use to detect a bit that has changed.
 	//
@@ -190,12 +190,12 @@ ISR(PCINT0_vect){
 	//XOR 0000001
 	//----------
 	//    0001000
-	changedbits = PINB ^ portbhistory;
+	changedBits = PINB ^ portbhistory;
 	portbhistory = PINB;
 	
-	if( (changedbits & (1<<(pcintNb+1))) ){
+	if( (changedBits & (1<<pcintNb)) ){
 		//Min just goes high, is now high
-		if(portbhistory & 1<<(pcintNb+1)){ //Be careful of assigning the good PORTBx
+		if(portbhistory & 1<<pcintNb){ //Be careful of assigning the good PORTBx
 			previousDumb = timerValue;
 		}
 		else{
@@ -209,7 +209,7 @@ ISR(PCINT0_vect){
 			
 			//Valid signal detected
 			if((temp >= (rcMinUs - 400)) && (temp <= (rcMaxUs + 400))){
-				switch(pcintNb + 1){
+				switch(pcintNb){
 					case 1:	yawUs = temp;
 							break;
 					case 2:	rollUs = temp;
@@ -220,16 +220,17 @@ ISR(PCINT0_vect){
 							break;
 				}
 				
-				if(pcintNb == 3){
-					pcintNb = 0;
-					PORTD|=1<<PORTD0;
+				if(pcintNb == 4){
+					pcintNb = 1;
 				}
 				else{
 					pcintNb++;
 				}
-				PCMSK0 &= ~(1<<(pcintNb)); //Clear interrupt on PCINT1
-				PCMSK0 |= 1<<(pcintNb + 1); //Enable interrupt on PCINT2
 				
+				PCMSK0 &= ~(1<<(pcintNb - 1)); //Clear interrupt on PCINT1
+				PCMSK0 |= 1<<pcintNb; //Enable interrupt on PCINT2
+				
+				//Useless now. For futur purposes: calculate initial value of RC commands.
 				if(initStep == 1){
 					initStep = -1;
 				}
@@ -243,7 +244,7 @@ ISR(PCINT0_vect){
 	/*if(pcintNb == 0){
 		PORTD |= (1<<PORTD0);
 		//PCINT1 changed
-		if( (changedbits & (1 << PB1)) )
+		if( (changedBits & (1 << PB1)) )
 		{
 			//Min just goes high, is now high
 			if(portbhistory & 1<<PORTB1){ //Be careful of assigning the good PORTBx
@@ -289,7 +290,7 @@ ISR(PCINT0_vect){
 	}
 	else if(pcintNb == 1){
 	//PCINT2 changed
-		if( (changedbits & (1 << PB2)) )
+		if( (changedBits & (1 << PB2)) )
 		{
 			//Min just goes high, is now high
 			if(portbhistory & 1<<PORTB2){ //Be careful of assigning the good PORTBx
@@ -335,7 +336,7 @@ ISR(PCINT0_vect){
 	}
 	else if(pcintNb == 2){
 	//PCINT3 changed
-		if( (changedbits & (1 << PB3)) )
+		if( (changedBits & (1 << PB3)) )
 		{
 			//Min just goes high, is now high
 			if(portbhistory & 1<<PORTB3){ //Be careful of assigning the good PORTBx
@@ -375,7 +376,7 @@ ISR(PCINT0_vect){
 	}
 	else if(pcintNb == 3){
 		//PCINT4 changed
-		if( (changedbits & (1 << PB4)) )
+		if( (changedBits & (1 << PB4)) )
 		{
 			//Min just goes high, is now high
 			if(portbhistory & 1<<PORTB4){ //Be careful of assigning the good PORTBx
