@@ -132,9 +132,7 @@ int main(void){
 					}
 				}
 			}
-			
 		}
-		
 	}
 	
 	x = ((xH << 8) | (xL & 0xff)); //0xff should be mandatory because of the 2s complement
