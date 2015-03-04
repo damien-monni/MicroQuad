@@ -199,9 +199,10 @@ ISR(PCINT0_vect){
 	
 	if( (changedBits & (1<<pcintNb)) ){
 		//Min just goes high, is now high
-		if(portHistory & 1<<pcintNb){ //Be careful of assigning the good PORTBx
+		if(portHistory & 1<<pcintNb){
 			previousRcValue = timerValue;
 		}
+		//Min just goes low, is now low
 		else{
 			int16_t temp;
 			if(timerValue > previousRcValue){
@@ -249,8 +250,8 @@ ISR(PCINT0_vect){
 					pcintNb++;
 				}
 				
-				PCMSK0 &= ~(1<<(pcintNb - 1)); //Clear interrupt on PCINT1
-				PCMSK0 |= 1<<pcintNb; //Enable interrupt on PCINT2
+				PCMSK0 &= ~(1<<(pcintNb - 1)); //Clear actual interrupt on PCINT
+				PCMSK0 |= 1<<pcintNb; //Enable newt interrupt on PCINT
 				
 			}
 		}
