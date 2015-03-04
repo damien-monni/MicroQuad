@@ -19,7 +19,9 @@ int main(void){
 	PORTD &= ~(1<<PORTD0); //Turn off LED on PORTD0	
 	_delay_ms(1500); //Wait 1.5s
 
-	//********TWI clock settings******************//
+	//Set SCL to 400kHz (for internal 8Mhz clock)
+    TWSR = 0x00;
+    TWBR = 0x02;
 
 	//Send a START condition.
 	TWCR = (1<<TWINT) | (1<<TWSTA) | (1<<TWEN);
