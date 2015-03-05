@@ -36,6 +36,20 @@ Axis accelerometer = {0};
 //Functions
 //**********************************//
 
+//Initialize a TWI communication sending a Start and SLA+R/W
+uint8_t twiInit(uint8_t slaveAddress, uint8_t isRead){
+	//Send a (RE)START
+	TWCR = (1<<TWINT) | (1<<TWSTA) | (1<<TWEN);
+	while(!(TWCR & (1<<TWINT)));
+	if((twiGetStatus() == 0x08) || (twiGetStatus() == 0x10)){
+		TWDR = ((slaveAddress << 1) & isRead);
+		TWCR = 1<<TWINT | 1<<TWEN;
+	}
+	while(!(TWCR & (1<<TWINT)));
+	
+	return (TWSR & 0xF8);
+}
+
 //Send a start or restart condition
 void twiSendStart(){
 	TWCR = (1<<TWINT) | (1<<TWSTA) | (1<<TWEN);
@@ -49,6 +63,10 @@ uint8_t twiIsFlagged(){
 	else{
 		return 0;
 	}
+}
+
+void twiWaitFlag(){
+	while(!(TWCR & (1<<TWINT)));
 }
 
 //Get status code
@@ -70,11 +88,56 @@ void twiWriteByte(uint8_t byte){
 	TWCR = 1<<TWINT | 1<<TWEN;
 }
 
+//Read a byte without acknowledge
+uint8_t twiReadByteAck(){
+	uint8_t value = TWDR;
+	TWCR = 1<<TWINT | 1<<TWEN;
+	return value;
+}
+
 //Read a byte and acknowledge
-uint8_t twiWriteByteAck(){
+uint8_t twiReadByteAck(){
 	uint8_t value = TWDR;
 	TWCR = 1<<TWINT | 1<<TWEA | 1<<TWEN;
 	return value;
+}
+
+//Write only one byte 
+uint8_t twiWriteOneByte(uint8_t slaveAddress, uint8_t slaveRegister, uint8_t data){
+
+	if(twiInit(slaveAddress, 0) == 0x18){
+		twiWriteByte(slaveRegister);
+		twiWaitFlag();
+		if(twiGetStatus() == 0x28){
+			twiWriteByte(data);
+			twiWaitFlag();
+			if(twiGetStatus() == 0x28){
+				return 1;
+			}
+		}
+	}
+
+	return 0;
+}
+
+//Read only one byte
+uint8_t twiReadOneByte(uint8_t slaveAddress, uint8_t slaveRegister){
+
+	uint8_t value = 0;
+	
+	if(twiInit(slaveAddress, 1) == 0x18){
+		twiWriteByte(slaveRegister);
+		twiWaitFlag();
+		if(twiGetStatus() == 0x40){
+			value = twiReadByteAck()
+			twiWaitFlag();
+			if(twiGetStatus() == 0x58){
+				return 1;
+			}
+		}
+	}
+	
+	return 0;
 }
 
 //**********************************//
@@ -101,10 +164,9 @@ int main(void){
 	//set data rate selection to 400Hz.
 	//**********************************//
 	
-	uint8_t initOk = 0;
+	while(writeOneByte(0b0011101, 0x20, 0b10000111) == 0);
 	
-	while(initOk == 0){
-	
+	/*
 		//Send a START condition.
 		twiSendStart();
 		//Wait for the START condition to be send.
@@ -129,11 +191,13 @@ int main(void){
 					while(twiIsFlagged() == 0);
 					//Check if a data byte has been transmitted and ACK received. Else, start again.
 					if(twiGetStatus() == 0x28){
-						initOk = 1;
+						//
 					}
 				}
 			}
 		}
+		
+	*/
 		
 	}
 
@@ -177,16 +241,16 @@ int main(void){
 						//Wait for the slave's ACK or NoACK to be received.
 						while(twiIsFlagged() == 0);
 						if(twiGetStatus() == 0x50){
-							xl = twiWriteByteAck();
+							xl = twiReadByteAck();
 							while(twiIsFlagged() == 0);
 							if(twiGetStatus() == 0x58){
-								xh = twiWriteByteAck();
+								xh = twiReadByteAck();
 								while(twiIsFlagged() == 0);
 								if(twiGetStatus() == 0x58){
-									yl = twiWriteByteAck();
+									yl = twiReadByteAck();
 									while(twiIsFlagged() == 0);
 									if(twiGetStatus() == 0x58){
-										yh = twiWriteByteAck();
+										yh = twiReadByteAck();
 									}
 								}
 							}
