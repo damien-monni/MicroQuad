@@ -36,19 +36,6 @@ Axis accelerometer = {0};
 //Functions
 //**********************************//
 
-//Initialize a TWI communication sending a Start and SLA+R/W
-uint8_t twiInit(uint8_t slaveAddress, uint8_t isRead){
-	//Send a (RE)START
-	TWCR = (1<<TWINT) | (1<<TWSTA) | (1<<TWEN);
-	while(!(TWCR & (1<<TWINT)));
-	if((twiGetStatus() == 0x08) || (twiGetStatus() == 0x10)){
-		TWDR = ((slaveAddress << 1) & isRead);
-		TWCR = 1<<TWINT | 1<<TWEN;
-	}
-	while(!(TWCR & (1<<TWINT)));
-	
-	return (TWSR & 0xF8);
-}
 
 //Send a start or restart condition
 void twiSendStart(){
@@ -76,7 +63,7 @@ uint8_t twiGetStatus(){
 
 //Send the slave's address - isRead = 0 if Slave+W ; isRead = 1 if Slave+R
 void twiSendSlaveAdd(uint8_t add, uint8_t isRead){
-	TWDR = ((add << 1) & isRead);
+	TWDR = ((add << 1) | isRead);
 	//Clear (by writing it to one) TWINT bit to continue
 	TWCR = 1<<TWINT | 1<<TWEN;
 }
@@ -89,7 +76,7 @@ void twiWriteByte(uint8_t byte){
 }
 
 //Read a byte without acknowledge
-uint8_t twiReadByteAck(){
+uint8_t twiReadByteNoAck(){
 	uint8_t value = TWDR;
 	TWCR = 1<<TWINT | 1<<TWEN;
 	return value;
@@ -102,9 +89,23 @@ uint8_t twiReadByteAck(){
 	return value;
 }
 
+//Initialize a TWI communication sending a Start and SLA+R/W
+uint8_t twiInit(uint8_t slaveAddress, uint8_t isRead){
+	//Send a (RE)START
+	TWCR = (1<<TWINT) | (1<<TWSTA) | (1<<TWEN);
+	while(!(TWCR & (1<<TWINT)));
+	if((twiGetStatus() == 0x08) || (twiGetStatus() == 0x10)){
+		TWDR = ((slaveAddress << 1) | isRead);
+		TWCR = 1<<TWINT | 1<<TWEN;
+	}
+	while(!(TWCR & (1<<TWINT)));
+	
+	return (TWSR & 0xF8);
+}
+
 //Write only one byte 
 uint8_t twiWriteOneByte(uint8_t slaveAddress, uint8_t slaveRegister, uint8_t data){
-
+	
 	if(twiInit(slaveAddress, 0) == 0x18){
 		twiWriteByte(slaveRegister);
 		twiWaitFlag();
@@ -125,19 +126,56 @@ uint8_t twiReadOneByte(uint8_t slaveAddress, uint8_t slaveRegister){
 
 	uint8_t value = 0;
 	
-	if(twiInit(slaveAddress, 1) == 0x18){
+	if(twiInit(slaveAddress, 0) == 0x18){
 		twiWriteByte(slaveRegister);
 		twiWaitFlag();
-		if(twiGetStatus() == 0x40){
-			value = twiReadByteAck()
-			twiWaitFlag();
-			if(twiGetStatus() == 0x58){
-				return 1;
+		if(twiGetStatus() == 0x28){
+			if(twiInit(slaveAddress, 1) == 0x40){
+				//Clear (by writing it to one) TWINT bit to continue
+				TWCR = 1<<TWINT | 1<<TWEN;
+				//Wait for the slave's ACK or NoACK to be received.
+				while(!(TWCR & (1<<TWINT)));
+				if((TWSR & 0xF8) == 0x58){
+					value = twiReadByteNoAck();
+				}
 			}
 		}
 	}
 	
-	return 0;
+	return value;
+	
+}
+
+//Read multiple bytes
+uint8_t twiReadMultipleBytes(uint8_t slaveAddress, uint8_t slaveRegister){
+
+	uint8_t value = 0;
+	uint8_t i = 0;
+	
+	if(twiInit(slaveAddress, 0) == 0x18){
+		twiWriteByte((slaveRegister | (1<<7)));
+		twiWaitFlag();
+		if(twiGetStatus() == 0x28){
+			if(twiInit(slaveAddress, 1) == 0x40){
+				for(i = 0 ; i < 3 ; i++){
+					TWCR = 1<<TWINT | 1<<TWEN | 1<<TWEA;
+					while(!(TWCR & (1<<TWINT)));
+					if((TWSR & 0xF8) == 0x50){
+						value = twiReadByteNoAck(); //WORKS. BUT SHOULDNOT ? SHOULD BE ACK INSTEAD OF NOACK... ?
+					}
+					else{
+						break;
+					}
+				}
+				if(i == 2){
+					
+				}
+			}
+		}
+	}
+	
+	return value;
+	
 }
 
 //**********************************//
@@ -164,7 +202,15 @@ int main(void){
 	//set data rate selection to 400Hz.
 	//**********************************//
 	
-	while(writeOneByte(0b0011101, 0x20, 0b10000111) == 0);
+	//while(twiWriteOneByte(0b0011101, 0x20, 0b10000111) == 0);
+	
+	//Read ID
+	/*if(twiReadOneByte(0b0011101, 0x0F) == 0b01001001){
+		PORTD |= 1<<PORTD0;
+	}*/
+	
+	twiReadMultipleBytes(0b0011101, 0x28);
+	
 	
 	/*
 		//Send a START condition.
@@ -198,13 +244,13 @@ int main(void){
 		}
 		
 	*/
-		
-	}
 
 
 	//**********************************//
 	//Read values
 	//**********************************//
+	
+	/*
 	
 	//Send a RESTART condition.
 	twiSendStart();
@@ -261,22 +307,9 @@ int main(void){
 				}
 			}
 		}
-	}
+	}*/
 	
-	while(1){
-	
-		switch(twiGetStatus()){
-		
-			//Restart sent
-			case 0x10:	
-						break;
-					
-			case 0x18:	break;
-					
-			default: 	break;
-		}
-		
-	}
+/*
 	//Wait for the START condition to be send.
 	while(!(TWCR & (1<<TWINT)));
 	//Check if no error in status code (mask prescaler's 2 LSB bits).
@@ -335,9 +368,9 @@ int main(void){
 			}
 		}
 	}
+	*/
 	
-	
-	
+	/*
 	x = ((xH << 8) | (xL & 0xff)); //0xff should be mandatory because of the 2s complement
 	
 	//Turn on LED on PORTD0 if...
@@ -347,5 +380,6 @@ int main(void){
 	else{
 		PORTD &= ~(1<<PORTD0);
 	}
+	*/
 
 }
