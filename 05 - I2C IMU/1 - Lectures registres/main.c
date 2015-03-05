@@ -1,9 +1,9 @@
 //*****************************************
 //Damien Monni - www.damien-monni.fr
 //
-//Read multiple register from LSM303D.
-//Read accelerator values (2 bytes per value) on X, Y and Z.
-//Read registers are 0x28 - 0x29 / 0x2A - 0x2B / 0x2C - 0x2D 
+//Read multiple registers from LSM303D.
+//Read accelerator values (2 bytes) on X.
+//Read registers are 0x28 - 0x29
 //*****************************************
 
 #include <avr/io.h>
