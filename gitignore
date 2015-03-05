@@ -1,6 +1,5 @@
 *.elf
 *.hex
 *.o
-
 *.stim
-Doc/
+/Doc
