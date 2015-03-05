@@ -20,8 +20,8 @@ int main(void){
 	_delay_ms(1500); //Wait 1.5s
 
 	//Set SCL to 400kHz (for internal 8Mhz clock)
-    TWSR = 0x00;
-    TWBR = 0x02;
+	TWSR = 0x00;
+	TWBR = 0x02;
 	
 	TWCR = 1<<TWEN;
 
