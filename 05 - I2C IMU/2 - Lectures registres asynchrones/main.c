@@ -70,6 +70,13 @@ void twiWriteByte(uint8_t byte){
 	TWCR = 1<<TWINT | 1<<TWEN;
 }
 
+//Read a byte and acknowledge
+uint8_t twiWriteByteAck(){
+	uint8_t value = TWDR;
+	TWCR = 1<<TWINT | 1<<TWEA | 1<<TWEN;
+	return value;
+}
+
 //**********************************//
 //Main
 //**********************************//
@@ -99,7 +106,7 @@ int main(void){
 	while(initOk == 0){
 	
 		//Send a START condition.
-		sendStart();
+		twiSendStart();
 		//Wait for the START condition to be send.
 		while(twiIsFlagged() == 0);
 		//Check if no error in status code (mask prescaler's 2 LSB bits). Should be 0x08.
@@ -129,16 +136,86 @@ int main(void){
 		}
 		
 	}
-	
+
+
 	//**********************************//
 	//Read values
 	//**********************************//
 	
-	//Send a START condition.
-	TWCR = (1<<TWINT) | (1<<TWSTA) | (1<<TWEN);
+	//Send a RESTART condition.
+	twiSendStart();
+	//Wait for the RESTART condition to be send.
+	while(twiIsFlagged() == 0);
+	//Check that RESTART has been sent
+	if(twiGetStatus() == 0x10){
+		//Write slave address 00111010b. LSB should be 0 for a write operation.
+		twiSendSlaveAdd(0b0011101, 0);
+		//Wait for the slave's ACK or NoACK to be received.
+		while(twiIsFlagged() == 0);
+		//Check if SLA+W has been transmitted and ACK received.
+		if(twiGetStatus() == 0x18){
+			//Write data. It should be the OUT_X_L_A register's address (28h). 1 in MSB for repeated read.
+			twiWriteByte(0x28 | (1 << 7));
+			//Wait for the slave's ACK or NoACK to be received.
+			while(twiIsFlagged() == 0);
+			//Check if a data byte has been transmitted and ACK received.
+			if(twiGetStatus() == 0x28){
+				//Send a REPEATED START condition.
+				twiSendStart();
+				//Wait for the REPEATED START condition to be send.
+				while(twiIsFlagged() == 0);
+				//Check that RESTART has been sent
+				if(twiGetStatus() == 0x10){
+					//Write slave address 00111011b. LSB should be 1 for a read operation.
+					twiSendSlaveAdd(0b0011101, 1);
+					//Wait for the slave's ACK or NoACK to be received.
+					while(twiIsFlagged() == 0);
+					//Check if SLA+R has been transmitted and ACK received.
+					if(twiGetStatus() == 0x40){
+						//Clear (by writing it to one) TWINT bit to continue and set TWEA for a Master ACK
+						TWCR = 1<<TWINT | 1<<TWEA | 1<<TWEN;
+						//Wait for the slave's ACK or NoACK to be received.
+						while(twiIsFlagged() == 0);
+						if(twiGetStatus() == 0x50){
+							xl = twiWriteByteAck();
+							while(twiIsFlagged() == 0);
+							if(twiGetStatus() == 0x58){
+								xh = twiWriteByteAck();
+								while(twiIsFlagged() == 0);
+								if(twiGetStatus() == 0x58){
+									yl = twiWriteByteAck();
+									while(twiIsFlagged() == 0);
+									if(twiGetStatus() == 0x58){
+										yh = twiWriteByteAck();
+									}
+								}
+							}
+							
+						}
+					}
+					
+				}
+			}
+		}
+	}
+	
+	while(1){
+	
+		switch(twiGetStatus()){
+		
+			//Restart sent
+			case 0x10:	
+						break;
+					
+			case 0x18:	break;
+					
+			default: 	break;
+		}
+		
+	}
 	//Wait for the START condition to be send.
 	while(!(TWCR & (1<<TWINT)));
-	//Check if no error in status code (mask prescaler's 2 LSB bits). Should be 0x08.
+	//Check if no error in status code (mask prescaler's 2 LSB bits).
 	if((TWSR & 0xF8) == 0x10){
 		//Write slave address 00111010b. LSB should be 0 for a write operation.
 		TWDR = 0b00111010;
@@ -194,6 +271,8 @@ int main(void){
 			}
 		}
 	}
+	
+	
 	
 	x = ((xH << 8) | (xL & 0xff)); //0xff should be mandatory because of the 2s complement
 	
