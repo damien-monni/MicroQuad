@@ -15,18 +15,11 @@
 //Structures definitions
 //**********************************//
 
-//One axis values on 2 bytes
-typedef struct{
-	uint8_t l;
-	uint8_t h;
-	uint16_t value;
-}TwoBytesAxis;
-
 //Three axis
 typedef struct{
-	TwoBytesAxis x;
-	TwoBytesAxis y;
-	TwoBytesAxis z;
+	int16_t x;
+	int16_t y;
+	int16_t z;
 }Axis;
 
 Axis accelerometer = {0};
@@ -202,17 +195,22 @@ int main(void){
 	//set data rate selection to 400Hz.
 	//**********************************//
 	
-	//while(twiWriteOneByte(0b0011101, 0x20, 0b10000111) == 0);
-	
-	//Read ID
-	/*if(twiReadOneByte(0b0011101, 0x0F) == 0b01001001){
-		PORTD |= 1<<PORTD0;
-	}*/
+	while(twiWriteOneByte(0b0011101, 0x20, 0b10000111) == 0);
 	
 	uint8_t result[6];
-	if(twiReadMultipleBytes(0b0011101, 0x20, result, 6) == 1){
-		if(result[0] == 0b111){
-			PORTD |= 1<<PORTD0;
+	
+	while(1){
+	
+		if(twiReadMultipleBytes(0b0011101, 0x28, result, 6) == 1){
+			accelerometer.x = ((result[1] << 8) | (result[0] & 0xff));
+			accelerometer.y = ((result[3] << 8) | (result[2] & 0xff));
+			accelerometer.z = ((result[5] << 8) | (result[4] & 0xff));
+		}
+		if(accelerometer.y > 0){
+			PORTD = 1;
+		}
+		else{
+			PORTD = 0;
 		}
 	}
 	
