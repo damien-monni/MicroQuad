@@ -1,34 +1,6 @@
-//*****************************************
-//Damien Monni - www.damien-monni.fr
-//
-//Read multiple registers from LSM303D.
-//Read accelerator values (2 bytes per value) on X, Y and Z.
-//Read registers are 0x28 - 0x29 / 0x2A - 0x2B / 0x2C - 0x2D 
-//Read it without blocking code.
-//*****************************************
+#include "monni_i2c.h"
 
-#include <avr/io.h>
-#include <util/delay.h>
-
-
-//**********************************//
-//Structures definitions
-//**********************************//
-
-//Three axis
-typedef struct{
-	int16_t x;
-	int16_t y;
-	int16_t z;
-}Axis;
-
-Axis accelerometer = {0};
-
-
-//**********************************//
-//TWI Functions
-//**********************************//
-
+//Wait for the interrupt flag to be set
 void twiWaitFlag(){
 	while(!(TWCR & (1<<TWINT)));
 }
@@ -46,6 +18,7 @@ void twiWriteByte(uint8_t byte){
 }
 
 //Initialize a TWI communication sending a Start and SLA+R/W
+//Return the status code
 uint8_t twiInit(uint8_t slaveAddress, uint8_t isRead){
 	//Send a (RE)START
 	TWCR = (1<<TWINT) | (1<<TWSTA) | (1<<TWEN);
@@ -59,7 +32,8 @@ uint8_t twiInit(uint8_t slaveAddress, uint8_t isRead){
 	return (TWSR & 0xF8);
 }
 
-//Write only one byte 
+//Write only one byte
+//Return 1 if OK, 0 if error
 uint8_t twiWriteOneByte(uint8_t slaveAddress, uint8_t slaveRegister, uint8_t data){
 	
 	if(twiInit(slaveAddress, 0) == 0x18){
@@ -78,6 +52,7 @@ uint8_t twiWriteOneByte(uint8_t slaveAddress, uint8_t slaveRegister, uint8_t dat
 }
 
 //Read only one byte
+//Return the read value
 uint8_t twiReadOneByte(uint8_t slaveAddress, uint8_t slaveRegister){
 
 	uint8_t value = 0;
@@ -131,49 +106,4 @@ uint8_t twiReadMultipleBytes(uint8_t slaveAddress, uint8_t slaveRegister, uint8_
 	
 	return 0;
 	
-}
-
-//**********************************//
-//Main
-//**********************************//
-
-int main(void){
-	
-	//Play with a LED on PORTD0 a few seconds
-	DDRD |= 1<<DDD0; //PORTD0 as output	
-	PORTD |= 1<<PORTD0; //Turn on LED on PORTD0	
-	_delay_ms(1500); //Wait 1.5s	
-	PORTD &= ~(1<<PORTD0); //Turn off LED on PORTD0	
-	_delay_ms(1500); //Wait 1.5s
-	
-	
-	//Set SCL to 400kHz (for internal 8Mhz clock)
-	TWSR = 0x00;
-	TWBR = 0x02;
-	
-	
-	//**********************************//
-	//Enable X, Y, Z accelerometer's axis and
-	//set data rate selection to 400Hz.
-	//**********************************//
-	
-	while(twiWriteOneByte(0b0011101, 0x20, 0b10000111) == 0);
-	
-	uint8_t result[6];
-	
-	while(1){
-	
-		if(twiReadMultipleBytes(0b0011101, 0x28, result, 6) == 1){
-			accelerometer.x = ((result[1] << 8) | (result[0] & 0xff));
-			accelerometer.y = ((result[3] << 8) | (result[2] & 0xff));
-			accelerometer.z = ((result[5] << 8) | (result[4] & 0xff));
-		}
-		
-		if(accelerometer.y > 0){
-			PORTD = 1;
-		}
-		else{
-			PORTD = 0;
-		}
-	}
 }
