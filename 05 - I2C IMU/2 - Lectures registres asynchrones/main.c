@@ -26,24 +26,8 @@ Axis accelerometer = {0};
 
 
 //**********************************//
-//Functions
+//TWI Functions
 //**********************************//
-
-
-//Send a start or restart condition
-void twiSendStart(){
-	TWCR = (1<<TWINT) | (1<<TWSTA) | (1<<TWEN);
-}
-
-//Check if the interrupt flag to occur
-uint8_t twiIsFlagged(){
-	if(TWCR & (1<<TWINT)){
-		return 1;
-	}
-	else{
-		return 0;
-	}
-}
 
 void twiWaitFlag(){
 	while(!(TWCR & (1<<TWINT)));
@@ -54,32 +38,11 @@ uint8_t twiGetStatus(){
 	return (TWSR & 0xF8);
 }
 
-//Send the slave's address - isRead = 0 if Slave+W ; isRead = 1 if Slave+R
-void twiSendSlaveAdd(uint8_t add, uint8_t isRead){
-	TWDR = ((add << 1) | isRead);
-	//Clear (by writing it to one) TWINT bit to continue
-	TWCR = 1<<TWINT | 1<<TWEN;
-}
-
 //Write a byte
 void twiWriteByte(uint8_t byte){
 	TWDR = byte;
 	//Clear (by writing it to one) TWINT bit to continue
 	TWCR = 1<<TWINT | 1<<TWEN;
-}
-
-//Read a byte without acknowledge
-uint8_t twiReadByteNoAck(){
-	uint8_t value = TWDR;
-	TWCR = 1<<TWINT | 1<<TWEN;
-	return value;
-}
-
-//Read a byte and acknowledge
-uint8_t twiReadByteAck(){
-	uint8_t value = TWDR;
-	TWCR = 1<<TWINT | 1<<TWEA | 1<<TWEN;
-	return value;
 }
 
 //Initialize a TWI communication sending a Start and SLA+R/W
@@ -124,12 +87,11 @@ uint8_t twiReadOneByte(uint8_t slaveAddress, uint8_t slaveRegister){
 		twiWaitFlag();
 		if(twiGetStatus() == 0x28){
 			if(twiInit(slaveAddress, 1) == 0x40){
-				//Clear (by writing it to one) TWINT bit to continue
 				TWCR = 1<<TWINT | 1<<TWEN;
-				//Wait for the slave's ACK or NoACK to be received.
 				while(!(TWCR & (1<<TWINT)));
 				if((TWSR & 0xF8) == 0x58){
-					value = twiReadByteNoAck();
+					value = TWDR;
+					TWCR = 1<<TWINT | 1<<TWEN;
 				}
 			}
 		}
