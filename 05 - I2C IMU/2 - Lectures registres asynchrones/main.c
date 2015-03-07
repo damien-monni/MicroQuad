@@ -147,34 +147,34 @@ uint8_t twiReadOneByte(uint8_t slaveAddress, uint8_t slaveRegister){
 }
 
 //Read multiple bytes
-uint8_t twiReadMultipleBytes(uint8_t slaveAddress, uint8_t slaveRegister){
-
-	uint8_t value = 0;
-	uint8_t i = 0;
+//Return 1 if OK, 0 if error.
+uint8_t twiReadMultipleBytes(uint8_t slaveAddress, uint8_t slaveRegister, uint8_t result[], uint8_t nbBytes){
+	
+	uint8_t i;
 	
 	if(twiInit(slaveAddress, 0) == 0x18){
 		twiWriteByte((slaveRegister | (1<<7)));
 		twiWaitFlag();
 		if(twiGetStatus() == 0x28){
 			if(twiInit(slaveAddress, 1) == 0x40){
-				for(i = 0 ; i < 3 ; i++){
+				for(i = 0 ; i < nbBytes ; i++){
 					TWCR = 1<<TWINT | 1<<TWEN | 1<<TWEA;
 					while(!(TWCR & (1<<TWINT)));
 					if((TWSR & 0xF8) == 0x50){
-						value = twiReadByteNoAck(); //WORKS. BUT SHOULDNOT ? SHOULD BE ACK INSTEAD OF NOACK... ?
+						result[i] = TWDR;
 					}
 					else{
 						break;
 					}
 				}
-				if(i == 2){
-					
+				if(i == nbBytes){
+					return 1;
 				}
 			}
 		}
 	}
 	
-	return value;
+	return 0;
 	
 }
 
@@ -209,7 +209,12 @@ int main(void){
 		PORTD |= 1<<PORTD0;
 	}*/
 	
-	twiReadMultipleBytes(0b0011101, 0x28);
+	uint8_t result[6];
+	if(twiReadMultipleBytes(0b0011101, 0x20, result, 6) == 1){
+		if(result[0] == 0b111){
+			PORTD |= 1<<PORTD0;
+		}
+	}
 	
 	
 	/*
