@@ -70,8 +70,8 @@ int main(void){
 	
 	//Wait for stabilisation
 	_delay_ms(20);
-	
-		
+
+
 	
 	//Get results
 	uint8_t result[6];
