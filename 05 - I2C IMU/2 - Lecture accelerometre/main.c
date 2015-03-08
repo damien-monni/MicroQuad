@@ -46,7 +46,9 @@ int main(void){
 	
 	//Enable X, Y, Z accelerometer's axis and
 	//set data rate selection to 400Hz.	
+	//Full scale 8g
 	while(twiWriteOneByte(0b0011101, 0x20, 0b10000111) == 0);
+	while(twiWriteOneByte(0b0011101, 0x21, 0x18) == 0); //CTRL2 = 0x18 => full scale +/-8g
 	
 	
 	//Get results
@@ -59,7 +61,7 @@ int main(void){
 			accelerometer.z = ((result[5] << 8) | (result[4] & 0xff));
 		}
 		
-		if(accelerometer.y > 0){
+		if(accelerometer.z > 4096){
 			PORTD = 1;
 		}
 		else{
