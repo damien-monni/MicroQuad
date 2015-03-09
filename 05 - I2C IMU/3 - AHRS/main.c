@@ -12,11 +12,13 @@
 #include <avr/io.h>
 #include <util/delay.h>
 #include <avr/interrupt.h>
+#include <avr/pgmspace.h>
+
+#include "monni_i2c.h"
+#include "lcd_hd44780_avr.h"
 
 #include <stdlib.h>
 #include <math.h>
-
-#include "monni_i2c.h"
 
 // LSM303 magnetometer calibration constants; use the Calibrate example from
 // the Pololu LSM303 library to find the right values for your board
@@ -400,6 +402,9 @@ void Compass_Heading(){
 //**********************************//
 
 int main(void){
+
+	//Initialise LCD for debug purposes
+	LCDInit(LS_NONE);
 	
 	//Play with a LED on PORTD0 a few seconds
 	DDRD |= 1<<DDD0; //PORTD0 as output	
@@ -533,6 +538,11 @@ int main(void){
 				magnetom_y = SENSOR_SIGN[7] * MAN[1];
 				magnetom_z = SENSOR_SIGN[8] * MAN[2];
 				
+				//DEBUG
+				//int intYaw = (yaw*100.f);
+				LCDClear();
+				LCDWriteInt((int)(ToDeg(MAG_Heading*100.f)), 6);
+				
 				//Calculate magnetic heading
 				Compass_Heading();				
 			}
@@ -543,12 +553,12 @@ int main(void){
 			Drift_correction();
 			Euler_angles();
 			
-			if(ToDeg(roll) > 0){
+			/*if(ToDeg(yaw) > 0){
 				PORTD |= 1<<PORTD0;
 			}
 			else{
 				PORTD = 0;
-			}
+			}*/
 
 		}
 	}

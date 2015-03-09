@@ -61,7 +61,7 @@ int main(void){
 			accelerometer.z = ((result[5] << 8) | (result[4] & 0xff));
 		}
 		
-		if(accelerometer.z > 4096){
+		if(accelerometer.y > 0){
 			PORTD = 1;
 		}
 		else{
