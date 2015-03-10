@@ -252,6 +252,7 @@ void Normalize(void)
   
   renorm= .5 *(3 - Vector_Dot_Product(&temporary[2][0],&temporary[2][0])); //eq.21
   Vector_Scale(&DCM_Matrix[2][0], &temporary[2][0], renorm);
+  
 }
 
 /**************************************************/
@@ -310,7 +311,7 @@ void Matrix_update(void)
 {
   Gyro_Vector[0]=Gyro_Scaled_X(gyro_x); //gyro x roll
   Gyro_Vector[1]=Gyro_Scaled_Y(gyro_y); //gyro y pitch
-  Gyro_Vector[2]=Gyro_Scaled_Z(gyro_z); //gyro Z yaw
+  Gyro_Vector[2]=Gyro_Scaled_Z(gyro_z); //gyro Z yaw 
   
   Accel_Vector[0]=accel_x;
   Accel_Vector[1]=accel_y;
@@ -331,6 +332,7 @@ void Matrix_update(void)
   Update_Matrix[2][0]=-G_Dt*Omega_Vector[1];//-y
   Update_Matrix[2][1]=G_Dt*Omega_Vector[0];//x
   Update_Matrix[2][2]=0;
+
  #else                    // Uncorrected data (no drift correction)
   Update_Matrix[0][0]=0;
   Update_Matrix[0][1]=-G_Dt*Gyro_Vector[2];//-z
@@ -352,6 +354,7 @@ void Matrix_update(void)
       DCM_Matrix[x][y]+=Temporary_Matrix[x][y];
     } 
   }
+	
 }
 
 void Euler_angles(void)
@@ -405,14 +408,14 @@ int main(void){
 
 	//Initialise LCD for debug purposes
 	LCDInit(LS_NONE);
-	
+	/*
 	//Play with a LED on PORTD0 a few seconds
 	DDRD |= 1<<DDD0; //PORTD0 as output	
 	PORTD |= 1<<PORTD0; //Turn on LED on PORTD0	
 	_delay_ms(1500); //Wait 1.5s	
 	PORTD &= ~(1<<PORTD0); //Turn off LED on PORTD0	
 	_delay_ms(1500); //Wait 1.5s
-	
+	*/
 	//ATmega328p TWI initialisation 
 	//Set SCL to 400kHz (for internal 8Mhz clock)
 	TWSR = 0x00;
@@ -428,9 +431,9 @@ int main(void){
 	while(twiWriteOneByte(accelAdd, 0x26, 0b00000000) == 0); //CTRL7 = 0 => low power off and continuous conversion mode
 	
 	//Gyro initialisation
-	while(twiWriteOneByte(accelAdd, 0x39, 0b00000000) == 0); //LOW_ODR disabled
-	while(twiWriteOneByte(accelAdd, 0x23, 0x20) == 0); //CTRL4 = 0x20 => 2000dps full scale
-	while(twiWriteOneByte(accelAdd, 0x20, 0x0F) == 0); //CTRL1 = 0x0F => Normal power mode, all axis enabled	
+	while(twiWriteOneByte(gyroAdd, 0x39, 0b00000000) == 0); //LOW_ODR disabled
+	while(twiWriteOneByte(gyroAdd, 0x23, 0x20) == 0); //CTRL4 = 0x20 => 2000dps full scale
+	while(twiWriteOneByte(gyroAdd, 0x20, 0x0F) == 0); //CTRL1 = 0x0F => Normal power mode, all axis enabled	
 	
 	//Wait for stabilisation
 	_delay_ms(20);
@@ -449,6 +452,8 @@ int main(void){
 		sensorsValues[3] = ((accelSplitedValues[1] << 8) | (accelSplitedValues[0] & 0xff));
 		sensorsValues[4] = ((accelSplitedValues[3] << 8) | (accelSplitedValues[2] & 0xff));
 		sensorsValues[5] = ((accelSplitedValues[5] << 8) | (accelSplitedValues[4] & 0xff));
+		
+
 		
 		for(int8_t j = 0 ; j < 6 ; j++){
 			AN_OFFSET[j] += sensorsValues[j];
@@ -494,10 +499,13 @@ int main(void){
 		//INSTEAD OF THAT, I COULD USE THE PMW GENERATOR TO SYNC THE LOOP AND AVOID AN INTERRUPT
 		//**************************
 		if(pastCount > 78){
-			pastCount = 0;
 			compassCounter++;
 			
-			G_Dt = pastCount*256; // Real time of loop run. We use this on the DCM algorithm.
+			G_Dt = (pastCount*256)/1000.0; // Real time of loop run. We use this on the DCM algorithm.
+			G_Dt /= 1000.0;
+
+			
+			pastCount = 0;
 			
 			//Read gyro			
 			while(twiReadMultipleBytes(gyroAdd, 0x28, gyroSplitedValues, 6) == 0);
@@ -538,11 +546,6 @@ int main(void){
 				magnetom_y = SENSOR_SIGN[7] * MAN[1];
 				magnetom_z = SENSOR_SIGN[8] * MAN[2];
 				
-				//DEBUG
-				//int intYaw = (yaw*100.f);
-				LCDClear();
-				LCDWriteInt((int)(ToDeg(MAG_Heading*100.f)), 6);
-				
 				//Calculate magnetic heading
 				Compass_Heading();				
 			}
@@ -552,6 +555,9 @@ int main(void){
 			Normalize();
 			Drift_correction();
 			Euler_angles();
+			
+			LCDClear();
+	LCDWriteInt(ToDeg(yaw), 5);
 			
 			/*if(ToDeg(yaw) > 0){
 				PORTD |= 1<<PORTD0;

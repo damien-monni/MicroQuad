@@ -11,9 +11,9 @@ int main(){
 	LCDInit(LS_NONE);
 	
 	float f = 2.57;
-	uint32_t a = f*100;
+	int a = (int)f;
 	
-	LCDWriteFString(PSTR("Test LCD !"));
+	LCDWriteInt(f*100, 5);
 	
 	while(1){
 
