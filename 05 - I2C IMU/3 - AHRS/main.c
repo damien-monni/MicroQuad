@@ -22,12 +22,19 @@
 
 // LSM303 magnetometer calibration constants; use the Calibrate example from
 // the Pololu LSM303 library to find the right values for your board
-#define M_X_MIN -2566
+/*#define M_X_MIN -2566
 #define M_Y_MIN -1891
 #define M_Z_MIN -2705
 #define M_X_MAX 2646
 #define M_Y_MAX 2835
-#define M_Z_MAX 2177
+#define M_Z_MAX 2177*/
+
+#define M_X_MIN -3281
+#define M_Y_MIN -2440
+#define M_Z_MIN -4657
+#define M_X_MAX 2154
+#define M_Y_MAX 2904
+#define M_Z_MAX 412
 
 #define ToRad(x) ((x)*0.01745329252)  // *pi/180
 #define ToDeg(x) ((x)*57.2957795131)  // *180/pi
@@ -481,6 +488,17 @@ int main(void){
 	
 	int8_t compassCounter = 0;
 	
+	int16_t xMin = 32000;
+	int16_t xMax = -32000;
+	
+	int16_t yMin = 32000;
+	int16_t yMax = -32000;
+	
+	int16_t zMin = 32000;
+	int16_t zMax = -32000;
+	
+	_delay_ms(3000);
+	
 	while(1){
 		
 		//Check if counter overflowed
@@ -542,6 +560,22 @@ int main(void){
 				MAN[0] = ((accelSplitedValues[1] << 8) | (accelSplitedValues[0] & 0xff));
 				MAN[1] = ((accelSplitedValues[3] << 8) | (accelSplitedValues[2] & 0xff));
 				MAN[2] = ((accelSplitedValues[5] << 8) | (accelSplitedValues[4] & 0xff));
+				
+				if(MAN[0] < xMin) xMin = MAN[0];
+				if(MAN[1] < yMin) yMin = MAN[1];
+				if(MAN[2] < zMin) zMin = MAN[2];
+				
+				if(MAN[0] > xMax) xMax = MAN[0];
+				if(MAN[1] > yMax) yMax = MAN[1];
+				if(MAN[2] > zMax) zMax = MAN[2];
+				
+				LCDClear();
+				LCDWriteInt(ToDeg(pitch), 5);
+				LCDWriteString(" - ");
+				LCDWriteInt(ToDeg(roll), 5);
+				LCDGotoXY(0, 1);
+				LCDWriteInt(ToDeg(yaw), 5);
+				
 				magnetom_x = SENSOR_SIGN[6] * MAN[0];
 				magnetom_y = SENSOR_SIGN[7] * MAN[1];
 				magnetom_z = SENSOR_SIGN[8] * MAN[2];
@@ -555,9 +589,6 @@ int main(void){
 			Normalize();
 			Drift_correction();
 			Euler_angles();
-			
-			LCDClear();
-	LCDWriteInt(ToDeg(yaw), 5);
 			
 			/*if(ToDeg(yaw) > 0){
 				PORTD |= 1<<PORTD0;
