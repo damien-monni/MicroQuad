@@ -404,7 +404,45 @@ void Compass_Heading(){
 }
 
 
+//Donne le temps d'execution du programme en ms (compte au max environ 1.5 mois soit environ 49 jours)
+//MIS A JOUR SEULEMENT TOUTES LES 20MS VIA LA GENERATION PMW.
+volatile uint32_t timeFromStartMs = 0;
 
+volatile uint16_t servo[4] = {2300, 2300, 2300, 2300}; //Initial speed in microseconds
+volatile int8_t channel = 1; //Controlled motor number : 1, 2, 3 or 4
+volatile uint16_t startPmwTcnt1 = 0; //TCNT1 value when the PMW cycle starts
+
+//Signed boolean to know where we are in the initialisation process.
+//A value of -1 means initialisation completed.
+volatile int8_t initStep = 0;
+
+//PMW Building ISR
+ISR(TIMER1_COMPA_vect)
+{
+	uint16_t timerValue = TCNT1;
+	
+	if(channel < 0){ //Every motors was pulsed, waiting for the next period
+		//TCNT1 = 0;
+		channel = 1;
+		PORTD |= 1<<channel;
+		startPmwTcnt1 = timerValue;
+		OCR1A = timerValue + servo[0];
+		timeFromStartMs += 20;
+	}
+	else{
+		if(channel < 4){ //Last servo pin just goes high
+			OCR1A = timerValue + servo[channel];
+			PORTD &= ~(1<<channel); //Clear actual motor pin
+			PORTD |= 1<<(channel + 1); //Set the next one
+			channel++;
+		}
+		else{
+			PORTD &= ~(1<<channel); //Clear the last motor pin
+			OCR1A = startPmwTcnt1 + 20000;
+			channel = -1; //Wait for the next period
+		}
+	}
+}
 
 
 //**********************************//
@@ -412,6 +450,16 @@ void Compass_Heading(){
 //**********************************//
 
 int main(void){
+
+	//PMW
+	TCCR1B |= 1<<CS11; //Prescaler of 8 because 8MHz clock source
+	TIMSK1 |= (1<<OCIE1A); //Interrupt on OCR1A
+	OCR1A = servo[0]; //Set the first interrupt to occur when the first pulse was ended
+	
+	DDRD |= 1<<DDD0 | 1<<DDD1 | 1<<DDD2 | 1<<DDD3 | 1<<DDD4; //LED and motors as output
+	PORTD = 1<<channel; //Set first servo pin high
+	
+	sei(); //Enable global interrupts
 
 	//Initialise LCD for debug purposes
 	//LCDInit(LS_NONE);
@@ -498,114 +546,143 @@ int main(void){
 	int16_t zMax = -32000;
 	
 	while(1){
-		
-		//Check if counter overflowed
-		uint8_t actualCount = t0OvfCount;
-		if(actualCount > previousCount){
-			pastCount += actualCount - previousCount;
-		}
-		else{
-			pastCount += (256 - previousCount) + actualCount;
+	
+		if((timeFromStartMs > 2300) && (timeFromStartMs < 7000)){
+			servo[0] = 700;
+			servo[1] = 700;
+			servo[2] = 700;
+			servo[3] = 700;
 		}
 		
-		previousCount = actualCount;
+		if(timeFromStartMs > 15000){
+			servo[0] = 700;
+			servo[1] = 700;
+			servo[2] = 700;
+			servo[3] = 700;
+		}
 		
-		//Run loop at about 50Hz (20ms) => 1 count = 256us => 78 counts = 20ms
-		//**************************
-		//INSTEAD OF THAT, I COULD USE THE PMW GENERATOR TO SYNC THE LOOP AND AVOID AN INTERRUPT
-		//**************************
-		if(pastCount > 78){
-			compassCounter++;
+		if((timeFromStartMs > 7000) && (timeFromStartMs < 15000)){
+		
 			
-			G_Dt = (pastCount*256)/1000.0; // Real time of loop run. We use this on the DCM algorithm.
-			G_Dt /= 1000.0;
-
 			
-			pastCount = 0;
-			
-			//Read gyro			
-			while(twiReadMultipleBytes(gyroAdd, 0x28, gyroSplitedValues, 6) == 0);
-			AN[0] = ((gyroSplitedValues[1] << 8) | (gyroSplitedValues[0] & 0xff));
-			AN[1] = ((gyroSplitedValues[3] << 8) | (gyroSplitedValues[2] & 0xff));
-			AN[2] = ((gyroSplitedValues[5] << 8) | (gyroSplitedValues[4] & 0xff));
-			gyro_x = SENSOR_SIGN[0] * (AN[0] - AN_OFFSET[0]);
-			gyro_y = SENSOR_SIGN[1] * (AN[1] - AN_OFFSET[1]);
-			gyro_z = SENSOR_SIGN[2] * (AN[2] - AN_OFFSET[2]);
-			
-			//PORTD ^= 1<<PORTD0;
-			
-			/*if(gyro_y > -15000){
-				PORTD |= 1<<PORTD0;
+			//Check if counter overflowed
+			uint8_t actualCount = t0OvfCount;
+			if(actualCount > previousCount){
+				pastCount += actualCount - previousCount;
 			}
 			else{
-				PORTD = 0;
-			}*/
-			
-			//Read accelerometer
-			while(twiReadMultipleBytes(accelAdd, 0x28, accelSplitedValues, 6) == 0);
-			AN[3] = ((accelSplitedValues[1] << 8) | (accelSplitedValues[0] & 0xff));
-			AN[4] = ((accelSplitedValues[3] << 8) | (accelSplitedValues[2] & 0xff));
-			AN[5] = ((accelSplitedValues[5] << 8) | (accelSplitedValues[4] & 0xff));
-			accel_x = SENSOR_SIGN[3] * (AN[3] - AN_OFFSET[3]);
-			accel_y = SENSOR_SIGN[4] * (AN[4] - AN_OFFSET[4]);
-			accel_z = SENSOR_SIGN[5] * (AN[5] - AN_OFFSET[5]);
-			
-			if(compassCounter > 5){
-				compassCounter = 0;
-				
-				//Read compass
-				while(twiReadMultipleBytes(accelAdd, 0x08, accelSplitedValues, 6) == 0);
-				MAN[0] = ((accelSplitedValues[1] << 8) | (accelSplitedValues[0] & 0xff));
-				MAN[1] = ((accelSplitedValues[3] << 8) | (accelSplitedValues[2] & 0xff));
-				MAN[2] = ((accelSplitedValues[5] << 8) | (accelSplitedValues[4] & 0xff));
-				
-				/*if(MAN[0] < xMin) xMin = MAN[0];
-				if(MAN[1] < yMin) yMin = MAN[1];
-				if(MAN[2] < zMin) zMin = MAN[2];
-				
-				if(MAN[0] > xMax) xMax = MAN[0];
-				if(MAN[1] > yMax) yMax = MAN[1];
-				if(MAN[2] > zMax) zMax = MAN[2];
-				
-				LCDClear();
-				LCDWriteInt(ToDeg(pitch), 5);
-				LCDWriteString(" - ");
-				LCDWriteInt(ToDeg(roll), 5);
-				LCDGotoXY(0, 1);
-				LCDWriteInt(ToDeg(yaw), 5);*/
-				
-				magnetom_x = SENSOR_SIGN[6] * MAN[0];
-				magnetom_y = SENSOR_SIGN[7] * MAN[1];
-				magnetom_z = SENSOR_SIGN[8] * MAN[2];
-				
-				//Calculate magnetic heading
-				Compass_Heading();				
+				pastCount += (256 - previousCount) + actualCount;
 			}
 			
-			// Calculations
-			Matrix_update(); 	
-			Normalize();
-			Drift_correction();
-			Euler_angles();
+			previousCount = actualCount;
 			
-			/*LCDClear();
+			//Run loop at about 50Hz (20ms) => 1 count = 256us => 78 counts = 20ms
+			//**************************
+			//INSTEAD OF THAT, I COULD USE THE PMW GENERATOR TO SYNC THE LOOP AND AVOID AN INTERRUPT
+			//**************************
+			if(pastCount > 78){
+				compassCounter++;
+				
+				G_Dt = (pastCount*256)/1000.0; // Real time of loop run. We use this on the DCM algorithm.
+				G_Dt /= 1000.0;
 
-				LCDWriteInt(ToDeg(pitch), 5);
-				LCDWriteString(" - ");
-				LCDWriteInt(ToDeg(roll), 5);
-				LCDGotoXY(0, 1);
-				LCDWriteInt(ToDeg(yaw), 5);*/
-			
-			float pitchOk = ToDeg(pitch);
-			
-			if(pitchOk > 0.0){
-				PORTD |= 1<<PORTD0;
-			}
-			else{
-				PORTD = 0;
-			}
+				
+				pastCount = 0;
+				
+				//Read gyro			
+				while(twiReadMultipleBytes(gyroAdd, 0x28, gyroSplitedValues, 6) == 0);
+				AN[0] = ((gyroSplitedValues[1] << 8) | (gyroSplitedValues[0] & 0xff));
+				AN[1] = ((gyroSplitedValues[3] << 8) | (gyroSplitedValues[2] & 0xff));
+				AN[2] = ((gyroSplitedValues[5] << 8) | (gyroSplitedValues[4] & 0xff));
+				gyro_x = SENSOR_SIGN[0] * (AN[0] - AN_OFFSET[0]);
+				gyro_y = SENSOR_SIGN[1] * (AN[1] - AN_OFFSET[1]);
+				gyro_z = SENSOR_SIGN[2] * (AN[2] - AN_OFFSET[2]);
+				
+				//PORTD ^= 1<<PORTD0;
+				
+				/*if(gyro_y > -15000){
+					PORTD |= 1<<PORTD0;
+				}
+				else{
+					PORTD = 0;
+				}*/
+				
+				//Read accelerometer
+				while(twiReadMultipleBytes(accelAdd, 0x28, accelSplitedValues, 6) == 0);
+				AN[3] = ((accelSplitedValues[1] << 8) | (accelSplitedValues[0] & 0xff));
+				AN[4] = ((accelSplitedValues[3] << 8) | (accelSplitedValues[2] & 0xff));
+				AN[5] = ((accelSplitedValues[5] << 8) | (accelSplitedValues[4] & 0xff));
+				accel_x = SENSOR_SIGN[3] * (AN[3] - AN_OFFSET[3]);
+				accel_y = SENSOR_SIGN[4] * (AN[4] - AN_OFFSET[4]);
+				accel_z = SENSOR_SIGN[5] * (AN[5] - AN_OFFSET[5]);
+				
+				if(compassCounter > 5){
+					compassCounter = 0;
+					
+					//Read compass
+					while(twiReadMultipleBytes(accelAdd, 0x08, accelSplitedValues, 6) == 0);
+					MAN[0] = ((accelSplitedValues[1] << 8) | (accelSplitedValues[0] & 0xff));
+					MAN[1] = ((accelSplitedValues[3] << 8) | (accelSplitedValues[2] & 0xff));
+					MAN[2] = ((accelSplitedValues[5] << 8) | (accelSplitedValues[4] & 0xff));
+					
+					/*if(MAN[0] < xMin) xMin = MAN[0];
+					if(MAN[1] < yMin) yMin = MAN[1];
+					if(MAN[2] < zMin) zMin = MAN[2];
+					
+					if(MAN[0] > xMax) xMax = MAN[0];
+					if(MAN[1] > yMax) yMax = MAN[1];
+					if(MAN[2] > zMax) zMax = MAN[2];
+					
+					LCDClear();
+					LCDWriteInt(ToDeg(pitch), 5);
+					LCDWriteString(" - ");
+					LCDWriteInt(ToDeg(roll), 5);
+					LCDGotoXY(0, 1);
+					LCDWriteInt(ToDeg(yaw), 5);*/
+					
+					magnetom_x = SENSOR_SIGN[6] * MAN[0];
+					magnetom_y = SENSOR_SIGN[7] * MAN[1];
+					magnetom_z = SENSOR_SIGN[8] * MAN[2];
+					
+					//Calculate magnetic heading
+					Compass_Heading();				
+				}
+				
+				// Calculations
+				Matrix_update(); 	
+				Normalize();
+				Drift_correction();
+				Euler_angles();
+				
+				/*LCDClear();
 
+					LCDWriteInt(ToDeg(pitch), 5);
+					LCDWriteString(" - ");
+					LCDWriteInt(ToDeg(roll), 5);
+					LCDGotoXY(0, 1);
+					LCDWriteInt(ToDeg(yaw), 5);*/
+				
+				float pitchOk = ToDeg(pitch);
+				
+				if(pitchOk > 0.0){
+					PORTD |= 1<<PORTD0;
+				}
+				else{
+					PORTD = 0;
+				}
+				
+				int servoValue = 800 + (pitchOk*10);
+				if(servoValue > 1200){
+					servoValue = 1200;
+				}
+				
+				servo[0] = servoValue;
+
+			}
+			
 		}
+		
+		
 	}
 }
 
