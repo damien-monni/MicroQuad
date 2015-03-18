@@ -12,10 +12,8 @@
 #include <avr/io.h>
 #include <util/delay.h>
 #include <avr/interrupt.h>
-#include <avr/pgmspace.h>
 
 #include "monni_i2c.h"
-#include "lcd_hd44780_avr.h"
 
 #include <stdlib.h>
 #include <math.h>
@@ -460,9 +458,6 @@ int main(void){
 	PORTD = 1<<channel; //Set first servo pin high
 	
 	sei(); //Enable global interrupts
-
-	//Initialise LCD for debug purposes
-	//LCDInit(LS_NONE);
 	
 	//Play with a LED on PORTD0 a few seconds
 	DDRD |= 1<<DDD0; //PORTD0 as output	
@@ -625,21 +620,6 @@ int main(void){
 					MAN[1] = ((accelSplitedValues[3] << 8) | (accelSplitedValues[2] & 0xff));
 					MAN[2] = ((accelSplitedValues[5] << 8) | (accelSplitedValues[4] & 0xff));
 					
-					/*if(MAN[0] < xMin) xMin = MAN[0];
-					if(MAN[1] < yMin) yMin = MAN[1];
-					if(MAN[2] < zMin) zMin = MAN[2];
-					
-					if(MAN[0] > xMax) xMax = MAN[0];
-					if(MAN[1] > yMax) yMax = MAN[1];
-					if(MAN[2] > zMax) zMax = MAN[2];
-					
-					LCDClear();
-					LCDWriteInt(ToDeg(pitch), 5);
-					LCDWriteString(" - ");
-					LCDWriteInt(ToDeg(roll), 5);
-					LCDGotoXY(0, 1);
-					LCDWriteInt(ToDeg(yaw), 5);*/
-					
 					magnetom_x = SENSOR_SIGN[6] * MAN[0];
 					magnetom_y = SENSOR_SIGN[7] * MAN[1];
 					magnetom_z = SENSOR_SIGN[8] * MAN[2];
@@ -653,14 +633,6 @@ int main(void){
 				Normalize();
 				Drift_correction();
 				Euler_angles();
-				
-				/*LCDClear();
-
-					LCDWriteInt(ToDeg(pitch), 5);
-					LCDWriteString(" - ");
-					LCDWriteInt(ToDeg(roll), 5);
-					LCDGotoXY(0, 1);
-					LCDWriteInt(ToDeg(yaw), 5);*/
 				
 				float pitchOk = ToDeg(pitch);
 				
